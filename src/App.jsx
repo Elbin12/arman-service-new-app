@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 
@@ -58,12 +58,11 @@ const theme = createTheme({
 const queryClient = new QueryClient();
 
 function App() {
-  
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-          <QueryClientProvider client={queryClient}>
-            <ThemeProvider theme={theme}>
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider theme={theme}>
             <CssBaseline />
             <TooltipProvider>
               <Toaster />
@@ -75,16 +74,22 @@ function App() {
                   <Route path="/booking" element={<BookingWizard />} />
                   <Route path="/quote/details/:id" element={<QuoteDetailsPage />} />
                   
-                  {/* Admin Routes */}
+                  {/* Admin Login Route */}
                   <Route path="/admin/login" element={<UserLogin />} />
-                  {/* <Route path="/admin" element={<AdminProtectedRoute>
-                    <AdminLayout><AdminDashboard /></AdminLayout>
-                  </AdminProtectedRoute>} /> */}
-                  <Route path="/admin/services" element={<AdminProtectedRoute><AdminLayout><ServicesManagement /></AdminLayout></AdminProtectedRoute>} />
-                  <Route path="/admin/locations" element={<AdminProtectedRoute><AdminLayout><LocationsManagement /></AdminLayout></AdminProtectedRoute>} />
-                  <Route path="/admin/house-size-info" element={<AdminProtectedRoute><AdminLayout><HouseSizeInfo /></AdminLayout></AdminProtectedRoute>} />
-                  {/* <Route path="/admin/questions" element={<AdminProtectedRoute><AdminLayout><div>Questions Coming Soon</div></AdminLayout></AdminProtectedRoute>} />
-                  <Route path="/admin/settings" element={<AdminProtectedRoute><AdminLayout><div>Settings Coming Soon</div></AdminLayout></AdminProtectedRoute>} /> */}
+                  
+                  {/* Protected Admin Routes */}
+                  <Route path="/admin" element={
+                    <AdminProtectedRoute >
+                      <AdminLayout >
+                        <Outlet />
+                      </AdminLayout>
+                    </AdminProtectedRoute>
+                  }>
+                    <Route path="dashboard" element={<AdminDashboard />} />
+                    <Route path="services" element={<ServicesManagement />} />
+                    <Route path="locations" element={<LocationsManagement />} />
+                    <Route path="house-size-info" element={<HouseSizeInfo />} />
+                  </Route>
                   
                   {/* Catch-all route */}
                   <Route path="*" element={<NotFound />} />
@@ -94,7 +99,7 @@ function App() {
           </ThemeProvider>
         </QueryClientProvider>
       </PersistGate>
-  </Provider>
+    </Provider>
   );
 }
 

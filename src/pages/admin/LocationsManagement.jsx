@@ -236,7 +236,8 @@ const LocationsManagement = () => {
   const { dialogOpen, editingLocation, formData } = useSelector((state) => state.locations)
 
   // RTK Query hooks
-  const { data: locations = [], isLoading, error } = useGetLocationsQuery()
+  const { data: locationsData = [], isLoading, error } = useGetLocationsQuery()
+  const locations = locationsData?.results
   const [createLocation] = useCreateLocationMutation()
   const [updateLocation] = useUpdateLocationMutation()
   const [deleteLocation] = useDeleteLocationMutation()

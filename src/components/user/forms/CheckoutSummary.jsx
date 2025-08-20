@@ -22,6 +22,11 @@ import {
   FormControl,
   TextField,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import {
   Person,
@@ -33,13 +38,30 @@ import {
   ExpandMore,
   Check,
   Close,
+  Add,
+  Edit,
+  Delete,
 } from '@mui/icons-material';
 import { useCalculatePriceMutation } from '../../../store/api/user/priceApi';
-import { useGetQuoteDetailsQuery } from '../../../store/api/user/quoteApi';
+import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation } from '../../../store/api/user/quoteApi';
 import { Info } from 'lucide-react';
 
-export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes }) => {
+export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes,setActiveStep }) => {
   const [selectedPackages, setSelectedPackages] = useState({});
+  const [customProducts, setCustomProducts] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    product_name: '',
+    description: '',
+    price: '',
+  });
+
+  const [editMode, setEditMode] = useState(false);
+  const [currentProductId, setCurrentProductId] = useState(null);
+
+  const [updateCustomProduct] = useUpdateCustomProductMutation();
+  const [deleteCustomProduct] = useDeleteCustomProductMutation();
+
 
   const {
     data: response,
@@ -52,10 +74,15 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     refetchOnReconnect: true,
   });
 
+  const [createCustomProduct, { isLoading: isCreating }] = useCreateCustomProductMutation();
+
   const quote_details = response;
 
   // Memoize the quote data to prevent unnecessary re-renders
   const quoteData = useMemo(() => quote_details, [quote_details]);
+
+  console.log(quoteData, 'data', customProducts);
+  
 
   // Only update parent when quote details first load or when selected packages change
   useEffect(() => {
@@ -71,6 +98,12 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
       });
     }
   }, [quoteData, isLoading, data.quoteDetails, onUpdate]);
+
+  useEffect(() => {
+    if (quoteData?.custom_products) {
+      setCustomProducts(quoteData.custom_products);
+    }
+  }, [quoteData]);
 
   // Handle package selection
   const handlePackageSelect = (serviceSelectionId, packageQuote) => {
@@ -101,6 +134,85 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     onUpdate({
       selectedPackages: selectedPackagesArray
     });
+  };
+
+  const handleAddCustomProduct = async() => {
+    const product = {
+      purchase: data.submission_id,
+      product_name: newProduct.product_name,
+      description: newProduct.description,
+      price: parseFloat(newProduct.price || 0),
+    };
+    try {
+      const response = await createCustomProduct(product).unwrap();
+
+      // Push the newly created product to local state
+      const updated = [...customProducts, response];
+      setCustomProducts(updated);
+
+      onUpdate({
+        selectedPackages,
+        customProducts: updated,
+      });
+
+      setDialogOpen(false);
+      setNewProduct({ product_name: '', description: '', price: '' });
+    } catch (err) {
+      console.error("Failed to create custom product", err);
+      // Optional: show a toast/snackbar error message
+    }
+  };
+
+  const handleAddOrUpdateCustomProduct = async () => {
+    const productPayload = {
+      purchase: data.submission_id,
+      product_name: newProduct.product_name,
+      description: newProduct.description,
+      price: parseFloat(newProduct.price || 0),
+    };
+
+    try {
+      if (editMode && currentProductId) {
+        const updated = await updateCustomProduct({ id: currentProductId, ...productPayload }).unwrap();
+        const updatedList = customProducts.map((p) => (p.id === currentProductId ? updated : p));
+        setCustomProducts(updatedList);
+        onUpdate({ selectedPackages, customProducts: updatedList });
+      } else {
+        const created = await createCustomProduct(productPayload).unwrap();
+        const updatedList = [...customProducts, created];
+        setCustomProducts(updatedList);
+        onUpdate({ selectedPackages, customProducts: updatedList });
+      }
+
+      setDialogOpen(false);
+      setEditMode(false);
+      setCurrentProductId(null);
+      setNewProduct({ product_name: '', description: '', price: '' });
+    } catch (err) {
+      console.error("Failed to save custom product", err);
+    }
+  };
+
+  const handleDeleteCustomProduct = async (id) => {
+    try {
+      await deleteCustomProduct(id).unwrap();
+      const updatedList = customProducts.filter((p) => p.id !== id);
+      setCustomProducts(updatedList);
+      onUpdate({ selectedPackages, customProducts: updatedList });
+    } catch (err) {
+      console.error("Failed to delete custom product", err);
+    }
+  };
+
+  const openEditDialog = (product) => {
+    setEditMode(true);
+    setCurrentProductId(product.id);
+    setNewProduct({
+      product_name: product.product_name,
+      description: product.description,
+      price: product.price,
+    });
+    setDialogOpen(true);
   };
 
   if (isLoading) {
@@ -214,7 +326,8 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   };
 
   const totalSelectedPrice = calculateTotalSelectedPrice();
-  const FinalTotal = formatPrice(totalSelectedPrice + (quoteData.quote_surcharge_applicable ? parseFloat(quoteData.location_details.trip_surcharge || 0): 0))
+  const FinalTotal = formatPrice(totalSelectedPrice + parseFloat(quoteData?.custom_service_total))
+  const totalWithTax = (FinalTotal * 1.0825).toFixed(2);
 
   return (
     <Box>
@@ -238,19 +351,19 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">Name</Typography>
-                  <Typography variant="body2">{quoteData.customer_name}</Typography>
+                  <Typography variant="body2">{quoteData.contact?.first_name}</Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">Email</Typography>
-                  <Typography variant="body2">{quoteData.customer_email}</Typography>
+                  <Typography variant="body2">{quoteData.contact?.email}</Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">Phone</Typography>
-                  <Typography variant="body2">{quoteData.customer_phone}</Typography>
+                  <Typography variant="body2">{quoteData.contact?.phone}</Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">Address</Typography>
-                  <Typography variant="body2">{quoteData.customer_address}</Typography>
+                  <Typography variant="body2">{quoteData.address?.name} — {quoteData.address?.street_address}, {quoteData.address?.city}, {quoteData.address?.state}, {quoteData.address?.postal_code}</Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="subtitle2">House Size</Typography>
@@ -449,6 +562,32 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                   })}
                 </Box>
               )}
+
+              {/* Custom Products */}
+              {customProducts.length > 0 && (
+                <Box sx={{ backgroundColor: 'grey.50', p: 2, borderRadius: 1, mb: 2 }}>
+                  <Typography variant="subtitle2" mb={1}>
+                    Custom Products:
+                  </Typography>
+                  {customProducts.map((prod) => (
+                    <Box key={prod.id} display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                      <Box>
+                        <Typography variant="body2">{prod.product_name} - {prod.description}</Typography>
+                        <Typography variant="caption" color="text.secondary">${formatPrice(prod.price)}</Typography>
+                      </Box>
+                      <Box>
+                        <IconButton size="small" onClick={() => openEditDialog(prod)}>
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteCustomProduct(prod.id)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
               <Box sx={{ backgroundColor: 'grey.50', p: 2, borderRadius: 1, mb: 2 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
                     <Typography variant="body2">
@@ -465,7 +604,11 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               <Box display="flex" justifyContent="space-between">
                 <Typography variant="h6">Final Total</Typography>
                 <Typography variant="h6" color="primary">
-                  ${FinalTotal}
+                  ${totalWithTax}
+                  <br />
+                  <span className='text-lg'>
+                    Plus Tax
+                  </span>
                 </Typography>
               </Box>
 
@@ -486,6 +629,19 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                 </Box>
               )}
             </Box>
+
+            {/* Add Custom Product Button */}
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              fullWidth
+              sx={{ mb: 2 }}
+              onClick={() => {
+                setActiveStep(1)
+              }}
+            >
+              Add More Services
+            </Button>
 
             {/* Additional Notes */}
           <Box mt={3}>
@@ -569,6 +725,41 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
           </Paper>
         </Box>
       </Box>
+
+      {/* Custom Product Dialog */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{editMode ? 'Update' : 'Add'} Custom Product</DialogTitle>
+        <DialogContent>
+          <TextField
+            margin="dense"
+            label="Product Name"
+            fullWidth
+            value={newProduct.product_name}
+            onChange={(e) => setNewProduct({ ...newProduct, product_name: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            fullWidth
+            value={newProduct.description}
+            onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            label="Price"
+            type="number"
+            fullWidth
+            value={newProduct.price}
+            onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {setDialogOpen(false)}}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddOrUpdateCustomProduct}>
+            {editMode ? 'Update' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -57,9 +57,57 @@ export const quoteApi = createApi({
       }),
       invalidatesTags: ['Quote', 'Submission'],
     }),
+    searchContacts: builder.query({
+      query: (searchTerm) => ({
+        url: `contacts/search/?search=${searchTerm}`,
+        method: "GET",
+      }),
+    }),
+
+    // 🔍 search addresses
+    getAddressesByContact: builder.query({
+      query: (id) => ({
+        url: `address/by-contact/${id}/`,
+        method: "GET",
+      }),
+    }),
+    createCustomProduct: builder.mutation({
+      query: (payload) => ({
+        url: 'custom-services/',
+        method: 'POST',
+        data: payload,
+      }),
+      invalidatesTags: ['services'],
+    }), 
+    updateCustomProduct: builder.mutation({
+      query: ({ id, ...payload }) => ({
+        url: `custom-services/${id}/`,
+        method: 'PUT',
+        data: payload,
+      }),
+    }),
+    deleteCustomProduct: builder.mutation({
+      query: (id) => ({
+        url: `custom-services/${id}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Custom Product'],
+    }),
+    getServices: builder.query({
+        query: (id)=>({url:`services/?submission_id=${id}`}),
+        providesTags: ['services'],
+    }),
+    createSchedule: builder.mutation({
+      query: ({ id, ...payload }) => ({
+        url: `schedule/update/${id}/`,
+        method: 'PUT',
+        data: payload,
+      }),
+    }),
   }),
 });
 
 export const { useGetInitialDataQuery, useGetServiceQuestionsQuery, useCreateSubmissionMutation, useUpdateSubmissionMutation, useCreateQuestionResponsesMutation,
-  useCreateServiceToSubmissionMutation,   useGetQuoteDetailsQuery,useSubmitQuoteMutation
+  useCreateServiceToSubmissionMutation,   useGetQuoteDetailsQuery,useSubmitQuoteMutation, useGetAddressesByContactQuery, useSearchContactsQuery, useCreateCustomProductMutation,
+  useUpdateCustomProductMutation, useDeleteCustomProductMutation, useGetServicesQuery, useCreateScheduleMutation
  } = quoteApi;

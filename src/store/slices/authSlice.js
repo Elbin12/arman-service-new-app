@@ -39,7 +39,7 @@ export const logoutUser = createAsyncThunk(
 
       if (!access || !refresh) return;
 
-      await axios.post(`${API_BASE_URL}/auth/logout/`, { refresh: refresh }, {
+      await axios.post(`${BASE_URL}/service/auth/logout/`, { refresh: refresh }, {
         headers: {
           Authorization: `Bearer ${access}`,
         },
@@ -102,6 +102,8 @@ const authSlice = createSlice({
         state.refresh = null;
         state.isAuthenticated = false;
         state.error = null;
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
       })
       .addCase(logoutUser.rejected, (state) => {
         state.user = null;
@@ -109,6 +111,8 @@ const authSlice = createSlice({
         state.refresh = null;
         state.isAuthenticated = false;
         state.error = null;
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
       });
   },
 });

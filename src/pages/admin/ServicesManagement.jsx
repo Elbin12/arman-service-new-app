@@ -66,7 +66,10 @@ const ServicesManagement = () => {
   });
 
   // Temporarily disable RTK Query to test basic Redux
-  const { data: services = [], isLoading, error } = useGetServicesQuery();
+  const { data: servicesData = [], isLoading, error } = useGetServicesQuery();
+  const services = servicesData.results
+  console.log(services, 'servicesssssssss');
+  
   const [createService] = useCreateServiceMutation();
   const [updateService] = useUpdateServiceMutation();
   const [deleteService] = useDeleteServiceMutation();

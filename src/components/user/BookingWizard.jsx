@@ -1,5 +1,5 @@
 "use client"
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -71,13 +71,17 @@ export const BookingWizard = () => {
         firstName: submissionData.customer_name || "",
         phone: submissionData.customer_phone || "",
         email: submissionData.customer_email || "",
-        address: submissionData.customer_address || "",
+        address: submissionData.address || "",
         latitude: submissionData.latitude || "",
         longitude: submissionData.longitude || "",
         googlePlaceId: submissionData.google_place_id || "",
-        contactId: null,
+        contactId: submissionData?.contact?.id,
         selectedLocation: submissionData.location || null,
         selectedHouseSize: submissionData.house_sqft || null,
+        contact: submissionData?.contact,
+        addressId: submissionData?.address?.id,
+        first_time: submissionData?.quote_schedule?.first_time,
+        quoted_by: submissionData?.quote_schedule?.quoted_by
       },
       selectedServices: submissionData.service_selections.map((s) => ({
         id: s.service_details.id,
@@ -155,6 +159,12 @@ export const BookingWizard = () => {
     setBookingData(transformedData);
   }
 }, [isSuccess, submissionData]);
+
+  useLayoutEffect(() => {
+    if (isSuccess && submissionData) {
+      setActiveStep(3);
+    }
+  }, [isSuccess, submissionData]);
 
   // // Save to localStorage whenever bookingData changes
   // useEffect(() => {
@@ -302,21 +312,17 @@ export const BookingWizard = () => {
   const handleNext = async () => {
     if (activeStep === 0) {
       const {submission_id} = bookingData
-      const { firstName, phone, email, address, contactId } = bookingData.userInfo
-      if ([firstName, phone, email].some((v) => !v || v.trim() === "")) {
+      const { addressId, contactId } = bookingData.userInfo
+      if ([addressId, contactId].some((v) => !v)) {
         return
       }
 
       const payload = {
-        customer_name: firstName,
-        customer_phone: phone,
-        customer_email: email,
-        customer_address: address,
-        latitude: bookingData.userInfo.latitude || undefined,
-        longitude: bookingData.userInfo.longitude || undefined,
-        google_place_id: bookingData.userInfo.googlePlaceId || undefined,
-        location: bookingData.userInfo.selectedLocation,
-        house_sqft: bookingData.userInfo?.selectedHouseSize
+        contact:contactId,
+        address:addressId,
+        house_sqft: bookingData.userInfo?.selectedHouseSize,
+        first_time: bookingData.userInfo?.first_time? bookingData.userInfo?.first_time: false,
+        quoted_by: bookingData.userInfo?.quoted_by
       }
 
       try {
@@ -335,7 +341,7 @@ export const BookingWizard = () => {
         alert("Could not save contact. Please try again.")
       }
     } else if(activeStep === 1){
-      try{
+      try{  
         const payload = {service_ids:bookingData.selectedServices.map(service => service.id)}
         await addServiceToSubmission({submissionId:bookingData.submission_id, payload})
         setActiveStep((prevActiveStep) => prevActiveStep + 1)
@@ -353,10 +359,10 @@ export const BookingWizard = () => {
           return;
         }
 
-        if (!selectedServices || selectedServices.length === 0) {
-          alert("No services selected. Please go back and select services.");
-          return;
-        }
+        // if (!selectedServices || selectedServices.length === 0) {
+        //   alert("No services selected. Please go back and select services.");
+        //   return;
+        // }
 
         console.log(bookingData, 'dataaaa')
 
@@ -486,35 +492,27 @@ export const BookingWizard = () => {
     });
   }
 
-  const isStepComplete = (step) => {
+  const   isStepComplete = (step) => {
     switch (step) {
       case 0: {
       const {
-        firstName = "",
-        phone = "",
-        email = "",
-        address = "",
+        contactId = "",
+        addressId = "",
         selectedHouseSize = ""
       } = bookingData.userInfo || {};
 
       const isNonEmpty = (v) =>
-        typeof v === "string" && v.trim() !== "";
-
-      const isValidEmail = (email) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-      const isValidPhone = (phone) =>
-        /^\d{10}$/.test(phone); // only 10 digits
+        v !== null && v !== undefined && String(v).trim() !== "";
 
       return (
-        isNonEmpty(firstName) &&
-        isNonEmpty(String(selectedHouseSize)) &&
-        isValidPhone(phone) &&
-        isValidEmail(email)
+        isNonEmpty(contactId) &&
+        isNonEmpty(addressId) &&  
+        isNonEmpty(selectedHouseSize)
       );
     }
       case 1:
         return Array.isArray(bookingData.selectedServices) && bookingData.selectedServices.length > 0;
+        // return true;
       case 2:
         return true; // Questions are optional, so always allow proceeding
       case 3:
@@ -534,7 +532,7 @@ export const BookingWizard = () => {
         return <QuestionsForm data={bookingData} onUpdate={updateBookingData} />;
       case 3:
         return <CheckoutSummary data={bookingData} onUpdate={updateBookingData} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted}
-        additionalNotes={addiditional_notes} setAdditionalNotes={setAdditionalNotes}
+        additionalNotes={addiditional_notes} setAdditionalNotes={setAdditionalNotes} setActiveStep={setActiveStep}
         />;
       default:
         return "Unknown step";
@@ -638,7 +636,7 @@ export const BookingWizard = () => {
                 Back
               </Button>
 
-              <div className="flex items-center gap-4 w-full justify-end">
+              <div className="flex items-center justify-end w-full gap-3">
                 {activeStep === steps.length - 1 &&
                   <Box mb={2} className='w-1/3'>
                     <Typography variant="subtitle2" gutterBottom>
@@ -648,9 +646,7 @@ export const BookingWizard = () => {
                       ref={sigCanvasRef}
                       penColor="black"
                       canvasProps={{
-                        width: 400,
-                        height: 150,
-                        className: "border border-gray-300 rounded bg-white",
+                        className: "border border-gray-300 rounded bg-white w-full h-40 sm:h-32",
                       }}
                       onEnd={handleSignatureEnd}
                     />

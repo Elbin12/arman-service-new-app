@@ -1,8 +1,10 @@
 // src/components/routes/AdminProtectedRoute.jsx
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 const AdminProtectedRoute = ({ children }) => {
+    const navigate = useNavigate()
+  
   const accessToken = localStorage.getItem('access');
 
   if (!accessToken) {

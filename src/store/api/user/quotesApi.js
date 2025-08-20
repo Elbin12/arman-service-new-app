@@ -16,7 +16,10 @@ export const quotesApi = createApi({
     getQuoteById: builder.query({
       query: (id) => ({url:`quotes/${id}/`}),
     }),
+    getServices: builder.query({  
+      query: (id) => ({url:'services/'}),
+    }),
   }),
 });
 
-export const { useCreateQuoteMutation, useGetQuoteByIdQuery } = quotesApi;
+export const { useCreateQuoteMutation, useGetQuoteByIdQuery, useGetServicesQuery } = quotesApi;
