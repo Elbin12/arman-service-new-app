@@ -333,9 +333,18 @@
             }
           >
             {/* Static Users */}
-            <MenuItem value="Sarah Johnson">Sarah Johnson</MenuItem>
-            <MenuItem value="Michael Lee">Michael Lee</MenuItem>
-            <MenuItem value="Emily Davis">Emily Davis</MenuItem>
+            <MenuItem value="Anthony Valles">Anthony Valles</MenuItem>
+            <MenuItem value="Arman Khalili">Arman Khalili</MenuItem>
+            <MenuItem value="Elias Hoover">Elias Hoover</MenuItem>
+            <MenuItem value="Harold Garcia">Harold Garcia</MenuItem>
+            <MenuItem value="Jay Dugman">Jay Dugman</MenuItem>
+            <MenuItem value="Jim Suazo">Jim Suazo</MenuItem>
+            <MenuItem value="Josh Fulfer">Josh Fulfer</MenuItem>
+            <MenuItem value="Juan Carlos Suazo">Juan Carlos Suazo</MenuItem>
+            <MenuItem value="Mandy Castaneda">Mandy Castaneda</MenuItem>
+            <MenuItem value="Reza Yousefian">Reza Yousefian</MenuItem>
+            <MenuItem value="Roshan Raj">Roshan Raj</MenuItem>
+            <MenuItem value="Serena Gallegos">Serena Gallegos</MenuItem>
           </TextField>
         </Box>
       </Box>

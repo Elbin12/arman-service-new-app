@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useCreateCustomProductMutation, useGetServicesQuery } from "../../../store/api/user/quoteApi";
+import { getServiceIcon } from "../../../utils/serviceIcons";
 
 const MultiServiceSelectionForm = ({ data, onUpdate }) => {
   const { data: servicesData, error, isLoading } = useGetServicesQuery(
@@ -83,7 +84,7 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Select Services</h2>
+      <h2 className="text-xl font-semibold mb-4">Select Services</h2>
 
       {/* Services list */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -99,16 +100,23 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
               }`}
               onClick={() => toggleService(service)}
             >
-              <CardContent className="flex items-center space-x-3">
+              <CardContent className="flex items-center space-x-3 p-4">
                 <Checkbox
                   checked={checked}
                   onCheckedChange={() => toggleService(service)}
                 />
-                <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 flex items-center justify-center">
+                    <img 
+                      src={getServiceIcon(service.name)} 
+                      alt={service.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                </div>
                   <p className="font-semibold">{service.name}</p>
-                  <p className="text-sm text-gray-600">
+                  {/* <p className="text-sm text-gray-600">
                     {service.description}
-                  </p>
+                  </p> */}
                 </div>
               </CardContent>
             </Card>
@@ -119,13 +127,13 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
       {/* Custom Products list (from API) */}
       {customProducts.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-2">Custom Products</h3>
+          <h3 className="text-xl font-semibold mb-4">Custom Services</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {customProducts.map((prod) => {
               
               return (
                 <Card key={prod.id}>
-                  <CardContent className="flex items-center space-x-3">
+                  <CardContent className="flex items-center space-x-3 py-2 pl-4">
                     <div>
                       <p className="font-medium">{prod.product_name}</p>
                       <p className="text-sm text-gray-600">{prod.description}</p>
@@ -140,7 +148,27 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
       )}
 
       {/* Add custom product button */}
-      <Button onClick={() => setDialogOpen(true)}>Add Custom Product</Button>
+      <button
+        onClick={() => setDialogOpen(true)}
+        className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+      >
+        <div className="flex items-start space-x-4">
+          <div className="w-10 h-10 flex items-center justify-center">
+            <img 
+              src="/Icons/Others/Custom item.png" 
+              alt="Custom Service"
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium text-gray-900">Create Custom Service</h4>
+            <p className="text-sm text-gray-600 mb-2">
+              Add a service that's not in our standard offerings
+            </p>
+          </div>
+        </div>
+      </button>
+      {/* <Button onClick={() => setDialogOpen(true)}>Add Custom Product</Button> */}
 
       {/* Dialog for adding custom product */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

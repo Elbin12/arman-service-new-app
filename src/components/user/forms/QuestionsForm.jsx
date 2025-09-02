@@ -4,10 +4,7 @@ import { useEffect, useState } from "react"
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   FormControl,
-  FormLabel,
   RadioGroup,
   FormControlLabel,
   Radio,
@@ -17,9 +14,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Chip,
   Alert,
-  Divider,
 } from "@mui/material"
 import { ExpandMore } from "@mui/icons-material"
 import { useGetServiceQuestionsQuery } from "../../../store/api/user/quoteApi"
@@ -28,6 +23,7 @@ export const QuestionsForm = ({ data, onUpdate }) => {
   const [allServiceQuestions, setAllServiceQuestions] = useState([])
   const [loadingServices, setLoadingServices] = useState([])
   const [forceRefresh, setForceRefresh] = useState(0)
+  const [expandedService, setExpandedService] = useState(null)
 
   // Get selected services from data.selectedServices
   const selectedServices = data?.selectedServices || []
@@ -48,6 +44,9 @@ export const QuestionsForm = ({ data, onUpdate }) => {
   useEffect(() => {
     setForceRefresh((prev) => prev + 1)
     setAllServiceQuestions([]) // Clear previous data
+    if (selectedServices.length > 0) {
+      setExpandedService(selectedServices[0].id)
+    }
   }, [selectedServices.map((s) => s.id).join(",")])
 
   // Process all service questions
@@ -158,6 +157,8 @@ export const QuestionsForm = ({ data, onUpdate }) => {
   }
 
   const handleAnswerChange = (serviceId, questionId, answer, subQuestionId = null, optionId = null) => {
+    console.log('Answer change:', { serviceId, questionId, answer, subQuestionId, optionId })
+    
     const key = subQuestionId
       ? `${serviceId}_${questionId}_${subQuestionId}`
       : optionId
@@ -173,6 +174,8 @@ export const QuestionsForm = ({ data, onUpdate }) => {
   }
 
   const handleQuantityChange = (serviceId, questionId, optionId, quantity) => {
+    console.log('Quantity change:', { serviceId, questionId, optionId, quantity })
+    
     const key = `${serviceId}_${questionId}_${optionId}_quantity`
     onUpdate({
       questionAnswers: {
@@ -182,53 +185,62 @@ export const QuestionsForm = ({ data, onUpdate }) => {
     })
   }
 
-  const renderQuestion = (question, serviceId, parentQuestion = null) => {
-    const questionKey = `${serviceId}_${question.id}`
-
-    // Check if this is a conditional child question that should be shown
-    if (question.parent_question && question.condition_answer) {
-      const parentKey = `${serviceId}_${question.parent_question}`
-      const parentAnswer = data.questionAnswers?.[parentKey]
-
-      if (parentAnswer !== question.condition_answer) {
-        return null // Don't show conditional question if condition not met
+  const getAllQuestionsFlattened = (questions) => {
+    const flattened = []
+    
+    const processQuestion = (question) => {
+      flattened.push(question)
+      if (question.child_questions && question.child_questions.length > 0) {
+        question.child_questions.forEach(childQuestion => {
+          processQuestion(childQuestion)
+        })
       }
     }
 
+    questions.forEach(question => {
+      processQuestion(question)
+    })
+
+    return flattened
+  }
+
+  const shouldShowQuestion = (question, serviceId) => {
+    if (!question.parent_question || !question.condition_answer) {
+      return true
+    }
+
+    const parentKey = `${serviceId}_${question.parent_question}`
+    const parentAnswer = data.questionAnswers?.[parentKey]
+    return parentAnswer === question.condition_answer
+  }
+
+  const renderQuestion = (question, serviceId) => {
     return (
-      <Card key={question.id} sx={{ mb: 2, borderRadius: 2 }}>
+      <Box key={question.id} sx={{ mb: 3 }}>
         <Box
           sx={{
-            background: parentQuestion
-              ? "linear-gradient(90deg,#f97316,#fb923c)"
-              : "linear-gradient(90deg,#9333ea,#c084fc)",
-            color: "white",
-            px: 2,
-            py: 1,
+            backgroundColor: '#d9edf7',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            mb: 2
           }}
         >
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {parentQuestion ? "↳ " : ""}
-            {question.text}
-          </Typography>
-          {/* <Chip
-            label={question.type}
-            size="small"
-            sx={{
-              backgroundColor: "rgba(255,255,255,0.2)",
-              color: "white",
-              fontSize: "11px",
+          <Typography 
+            sx={{ 
+              color: '#2c2c6c',
+              fontSize: '22px',
+              fontWeight: 400,
+              lineHeight: 1.4
             }}
-          /> */}
+          >
+          {question.text}
+          </Typography>
         </Box>
-        <CardContent>
-          {renderQuestionContent(question, serviceId, parentQuestion)}
-
-          {/* Render child questions if conditions are met */}
-          {question.child_questions &&
-            question.child_questions.map((childQuestion) => renderQuestion(childQuestion, serviceId, question))}
-        </CardContent>
-      </Card>
+        
+        <Box sx={{ pl: 2 }}>
+          {renderQuestionContent(question, serviceId)}
+        </Box>
+      </Box>
     )
   }
 
@@ -237,16 +249,24 @@ export const QuestionsForm = ({ data, onUpdate }) => {
 
     switch (question.type) {
       case "yes_no":
+      case "conditional":
         return (
-          <FormControl component="fieldset" fullWidth>
+          <FormControl component="fieldset">
             <RadioGroup
               value={data.questionAnswers?.[questionKey] || ""}
               onChange={(e) => handleAnswerChange(serviceId, question.id, e.target.value)}
+              sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}
             >
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-                <FormControlLabel value="no" control={<Radio />} label="No" />
-              </Box>
+              <FormControlLabel 
+                value="yes" 
+                control={<Radio sx={{ color: '#e1e1e1', '&.Mui-checked': { color: '#023c8f' } }} />} 
+                label="Yes" 
+              />
+              <FormControlLabel 
+                value="no" 
+                control={<Radio sx={{ color: '#e1e1e1', '&.Mui-checked': { color: '#023c8f' } }} />} 
+                label="No" 
+              />
             </RadioGroup>
           </FormControl>
         )
@@ -254,13 +274,19 @@ export const QuestionsForm = ({ data, onUpdate }) => {
       case "describe":
       case "options":
         return (
-          <FormControl component="fieldset" fullWidth>
+          <FormControl component="fieldset">
             <RadioGroup
               value={data.questionAnswers?.[questionKey] || ""}
               onChange={(e) => handleAnswerChange(serviceId, question.id, e.target.value)}
+              sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
             >
               {question.options?.map((option) => (
-                <FormControlLabel key={option.id} value={option.id} control={<Radio />} label={option.text} />
+                <FormControlLabel
+                  key={option.id}
+                  value={option.id}
+                  control={<Radio sx={{ color: '#e1e1e1', '&.Mui-checked': { color: '#023c8f' } }} />}
+                  label={option.text}
+                />
               ))}
             </RadioGroup>
           </FormControl>
@@ -268,7 +294,7 @@ export const QuestionsForm = ({ data, onUpdate }) => {
 
       case "quantity":
         return (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {question.options?.map((option) => {
               const optionKey = `${serviceId}_${question.id}_${option.id}`
               const quantityKey = `${serviceId}_${question.id}_${option.id}_quantity`
@@ -276,7 +302,18 @@ export const QuestionsForm = ({ data, onUpdate }) => {
               const quantity = data.questionAnswers?.[quantityKey] || 1
 
               return (
-                <Box key={option.id} sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box 
+                  key={option.id}
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 2,
+                    padding: '12px',
+                    border: isSelected ? '1px solid #779cd1' : '1px solid #e0e0e0',
+                    borderRadius: '8px',
+                    backgroundColor: isSelected ? '#f8fbff' : 'white'
+                  }}
+                >
                   <FormControlLabel
                     control={
                       <Checkbox
@@ -291,38 +328,50 @@ export const QuestionsForm = ({ data, onUpdate }) => {
                           } else {
                             delete updatedAnswers[optionKey]
                             delete updatedAnswers[quantityKey]
-                            // handleQuantityChange(serviceId, question.id, option.id, 1)
                           }
                           onUpdate({ questionAnswers: updatedAnswers })
                         }}
+                        sx={{ color: '#e1e1e1', '&.Mui-checked': { color: '#023c8f' } }}
                       />
                     }
                     label={option.text}
                   />
+                  
                   {isSelected && option.allow_quantity && (
-                    <TextField
-                      type="number"
-                      size="small"
-                      label="Quantity"
-                      value={quantity}
-                      onChange={(e) => {
-                        const newQuantity = Math.min(
-                          Math.max(1, Number.parseInt(e.target.value) || 1),
-                          option.max_quantity,
-                        )
-                        handleQuantityChange(serviceId, question.id, option.id, newQuantity)
-                      }}
-                      inputProps={{
-                        min: 1,
-                        max: option.max_quantity,
-                      }}
-                      sx={{ width: 100 }}
-                    />
-                  )}
-                  {option.allow_quantity && (
-                    <Typography variant="caption" color="text.secondary">
-                      Max: {option.max_quantity}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={data.questionAnswers?.[quantityKey] ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value
+                          if (value === "") {
+                            handleQuantityChange(serviceId, question.id, option.id, "")
+                            return
+                          }
+                          const newQuantity = Math.min(
+                            Math.max(1, Number(value)),
+                            option.max_quantity
+                          )
+                          handleQuantityChange(serviceId, question.id, option.id, newQuantity)
+                        }}
+                        onBlur={(e) => {
+                          // If left empty, reset to minimum (1)
+                          if (e.target.value === "") {
+                            handleQuantityChange(serviceId, question.id, option.id, 1)
+                          }
+                        }}
+                        inputProps={{
+                          min: 1,
+                          max: option.max_quantity,
+                        }}
+                        sx={{ width: 80 }}
+                      />
+
+                      <Typography variant="caption" sx={{ color: '#666' }}>
+                        (Max: {option.max_quantity})
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
               )
@@ -332,41 +381,37 @@ export const QuestionsForm = ({ data, onUpdate }) => {
 
       case "multiple_yes_no":
         return (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {question.sub_questions?.map((subQuestion) => {
               const subQuestionKey = `${serviceId}_${question.id}_${subQuestion.id}`
+              
               return (
-                <FormControl key={subQuestion.id} component="fieldset">
-                  <FormLabel component="legend" sx={{ fontSize: "14px", mb: 1 }}>
+                <Box key={subQuestion.id}>
+                  <Typography sx={{ fontSize: '15px', mb: 1, color: '#555', fontWeight: 500 }}>
                     {subQuestion.text}
-                  </FormLabel>
-                  <RadioGroup
-                    row
-                    value={data.questionAnswers?.[subQuestionKey] || ""}
-                    onChange={(e) => handleAnswerChange(serviceId, question.id, e.target.value, subQuestion.id)}
-                  >
-                    <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-                    <FormControlLabel value="no" control={<Radio />} label="No" />
-                  </RadioGroup>
-                </FormControl>
+                  </Typography>
+                  <FormControl component="fieldset" sx={{ ml: 2 }}>
+                    <RadioGroup
+                      value={data.questionAnswers?.[subQuestionKey] || ""}
+                      onChange={(e) => handleAnswerChange(serviceId, question.id, e.target.value, subQuestion.id)}
+                      sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}
+                    >
+                      <FormControlLabel 
+                        value="yes" 
+                        control={<Radio sx={{ color: '#e1e1e1', '&.Mui-checked': { color: '#023c8f' } }} />} 
+                        label="Yes" 
+                      />
+                      <FormControlLabel 
+                        value="no" 
+                        control={<Radio sx={{ color: '#e1e1e1', '&.Mui-checked': { color: '#023c8f' } }} />} 
+                        label="No" 
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                </Box>
               )
             })}
           </Box>
-        )
-
-      case "conditional":
-        return (
-          <FormControl component="fieldset" fullWidth>
-            <RadioGroup
-              value={data.questionAnswers?.[questionKey] || ""}
-              onChange={(e) => handleAnswerChange(serviceId, question.id, e.target.value)}
-            >
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-                <FormControlLabel value="no" control={<Radio />} label="No" />
-              </Box>
-            </RadioGroup>
-          </FormControl>
         )
 
       default:
@@ -374,11 +419,15 @@ export const QuestionsForm = ({ data, onUpdate }) => {
     }
   }
 
+  const handleAccordionChange = (serviceId) => (event, isExpanded) => {
+    setExpandedService(isExpanded ? serviceId : null)
+  }
+
   // Show loading state
   if (serviceQueries.some((query) => query.isLoading)) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#023c8f' }} />
         <Typography sx={{ ml: 2 }}>Loading questions...</Typography>
       </Box>
     )
@@ -387,84 +436,145 @@ export const QuestionsForm = ({ data, onUpdate }) => {
   // Show error state
   if (serviceQueries.some((query) => query.isError)) {
     return (
-      <Box>
-        <Typography color="error">Failed to load questions for some services. Please try again.</Typography>
-        <button onClick={handleRefresh} style={{ marginTop: "10px", padding: "8px 16px" }}>
-          Retry Loading Questions
-        </button>
-      </Box>
+      <Alert 
+        severity="error" 
+        action={
+          <button 
+            onClick={handleRefresh} 
+            style={{ 
+              padding: "8px 16px", 
+              backgroundColor: '#023c8f',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        }
+      >
+        Failed to load questions. Please try again.
+      </Alert>
     )
   }
 
   // Show no questions state
   if (allServiceQuestions.length === 0) {
     return (
-      <Box>
+      <Box sx={{ textAlign: 'center', py: 4 }}>
         <Typography variant="h6" gutterBottom>
-          Answer Questions
+          Service Questions
         </Typography>
-        <Typography color="text.secondary">No questions available for the selected services.</Typography>
-        <button onClick={handleRefresh} style={{ marginTop: "10px", padding: "8px 16px" }}>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          No questions available for the selected services.
+        </Typography>
+        <button 
+          onClick={handleRefresh} 
+          style={{ 
+            padding: "10px 20px",
+            backgroundColor: '#023c8f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
           Refresh Questions
         </button>
       </Box>
     )
   }
 
+  // Debug log
+  console.log('Current question answers:', data.questionAnswers)
+
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Answer Questions
+      <Typography 
+        variant="h4" 
+        sx={{ 
+          mb: 1, 
+          fontWeight: 300, 
+          color: '#023c8f',
+          textAlign: 'center'
+        }}
+      >
+        Service Questions
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Please answer the following questions for your selected services.
+      
+      <Typography 
+        sx={{ 
+          mb: 4, 
+          color: '#666', 
+          textAlign: 'center'
+        }}
+      >
+        Please answer the questions for each service
       </Typography>
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        {allServiceQuestions.map((serviceData, serviceIndex) => {
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        {allServiceQuestions.map((serviceData) => {
           const hasQuestions = serviceData.questions.length > 0
+          const isExpanded = expandedService === serviceData.service.id
 
           return (
-            <Box key={serviceData.service.id}>
-              <Accordion defaultExpanded={serviceIndex === 0}>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {serviceData.service.name}
-                    </Typography>
-                    <Chip
-                      label={`${serviceData.questions.length} question${serviceData.questions.length !== 1 ? "s" : ""}`}
-                      size="small"
-                      color={hasQuestions ? "primary" : "default"}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  {serviceData.service.description && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {serviceData.service.description}
-                    </Typography>
-                  )}
+            <Accordion 
+              key={serviceData.service.id}
+              expanded={isExpanded}
+              onChange={handleAccordionChange(serviceData.service.id)}
+              sx={{
+                border: '1px solid #ddd',
+                borderRadius: '8px !important',
+                '&:before': { display: 'none' },
+                boxShadow: 'none'
+              }}
+            >
+              <AccordionSummary 
+                expandIcon={<ExpandMore sx={{ color: 'white' }} />}
+                sx={{
+                  backgroundColor: '#023c8f',
+                  color: 'white',
+                  borderRadius: '8px',
+                  minHeight: 48,
+                  '&.Mui-expanded': {
+                    minHeight: 48,
+                    borderRadius: '8px 8px 0 0'
+                  },
+                  '& .MuiAccordionSummary-content': {
+                    margin: 0,
+                  },
+                  '& .MuiAccordionSummary-content.Mui-expanded': {
+                    margin: 0,
+                  }
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 500 }}>
+                  {serviceData.service.name}
+                </Typography>
+              </AccordionSummary>
+              
+              <AccordionDetails sx={{ p: 2 }}>
+                {serviceData.service.description && (
+                  <Typography sx={{ mb: 2, color: '#666', fontSize: '14px' }}>
+                    {serviceData.service.description}
+                  </Typography>
+                )}
 
-                  {!hasQuestions ? (
-                    <Typography color="text.secondary" sx={{ fontStyle: "italic" }}>
-                      No additional questions for this service.
-                    </Typography>
-                  ) : (
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                      {serviceData.questions
-                        .filter((question) => !question.parent_question) // Only show top-level questions
-                        .map((question, index) => (
-                          <Box key={question.id}>
-                            {index > 0 && <Divider sx={{ my: 2 }} />}
-                            {renderQuestion(question, serviceData.service.id)}
-                          </Box>
-                        ))}
-                    </Box>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            </Box>
+                {!hasQuestions ? (
+                  <Typography sx={{ color: '#666', fontStyle: "italic" }}>
+                    No additional questions for this service.
+                  </Typography>
+                ) : (
+                  <Box>
+                    {getAllQuestionsFlattened(serviceData.questions)
+                      .filter(question => shouldShowQuestion(question, serviceData.service.id))
+                      .map((question) => renderQuestion(question, serviceData.service.id))
+                    }
+                  </Box>
+                )}
+              </AccordionDetails>
+            </Accordion>
           )
         })}
       </Box>

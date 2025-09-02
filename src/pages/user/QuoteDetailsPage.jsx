@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,6 +15,12 @@ import {
   Button,
   Stack,
   Avatar,
+  Container,
+  Grid,
+  Collapse,
+  IconButton,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import {
   Person,
@@ -27,6 +33,15 @@ import {
   Mail,
   Phone,
   Home,
+  ExpandMore,
+  ExpandLess,
+  Check,
+  Close,
+  Add,
+  Schedule,
+  CalendarToday,
+  AccessTime,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useCreateScheduleMutation, useGetQuoteDetailsQuery } from '../../store/api/user/quoteApi';
 import { Info } from 'lucide-react';
@@ -35,47 +50,13 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
-// Minimal, unified color palette
-const colors = {
-  // Primary blue - single brand color
-  primary: {
-    50: '#f8fafc',
-    100: '#f1f5f9', 
-    200: '#e2e8f0',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569', // Main primary
-    700: '#334155',
-    800: '#1e293b',
-    900: '#0f172a',
-  },
-  // Neutral grays
-  neutral: {
-    50: '#fafafa',
-    100: '#f5f5f5',
-    200: '#e5e5e5',
-    300: '#d4d4d4',
-    400: '#a3a3a3',
-    500: '#737373',
-    600: '#525252',
-    700: '#404040',
-    800: '#262626',
-    900: '#171717',
-  },
-  // Status colors - minimal set
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
-};
-
 const statusStyles = {
-  pending: { bgcolor: colors.neutral[100], color: colors.neutral[700] },
-  approved: { bgcolor: '#dcfce7', color: '#166534' },
-  rejected: { bgcolor: '#fee2e2', color: '#991b1b' },
-  submitted: { bgcolor: colors.neutral[100], color: colors.neutral[700] },
-  draft: { bgcolor: colors.neutral[100], color: colors.neutral[700] },
-  responses_completed: { bgcolor: '#dcfce7', color: '#166534' },
+  pending: { bgcolor: 'warning.light', color: 'warning.dark' },
+  approved: { bgcolor: 'success.light', color: 'success.dark' },
+  rejected: { bgcolor: 'error.light', color: 'error.dark' },
+  submitted: { bgcolor: 'info.light', color: 'info.dark' },
+  draft: { bgcolor: 'grey.100', color: 'grey.800' },
+  responses_completed: { bgcolor: 'success.light', color: 'success.dark' },
 };
 
 const formatYesNo = (val) => {
@@ -87,6 +68,9 @@ const formatYesNo = (val) => {
 const QuoteDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [expandedServices, setExpandedServices] = useState({});
+  const [selectedDate, setSelectedDate] = useState(null);
+  
   const {
     data: quote,
     isLoading,
@@ -101,12 +85,48 @@ const QuoteDetailsPage = () => {
 
   const [createSchedule] = useCreateScheduleMutation();
 
-  const [selectedDate, setSelectedDate] = useState(null);
+  // Expand all services by default
+  useEffect(() => {
+    if (quote?.service_selections) {
+      const initialExpanded = {};
+      quote.service_selections.forEach((service) => {
+        initialExpanded[service.id] = true;
+      });
+      setExpandedServices(initialExpanded);
+    }
+  }, [quote]);
+
+  const toggleServiceExpansion = (serviceId) => {
+    setExpandedServices((prev) => ({
+      ...prev,
+      [serviceId]: !prev[serviceId],
+    }));
+  };
+
+  const handleSchedule = async () => {
+    if (!selectedDate) return;
+    console.log("Scheduled date:", selectedDate, quote.quote_schedule?.quoted_by);
+    const payload = {
+      id: quote.id,
+      scheduled_date: selectedDate,
+      is_submitted: true,
+      quoted_by: quote.quote_schedule?.quoted_by,
+    };
+    try {
+      const response = await createSchedule(payload).unwrap()
+      await refetch();
+    } catch (err) {
+      console.error("Failed.", err)
+    }
+  };
 
   if (isLoading) {
     return (
-      <Box p={4} display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
-        <CircularProgress sx={{ color: colors.primary[500] }} />
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress sx={{ color: '#023c8f' }} />
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          Loading quote details...
+        </Typography>
       </Box>
     );
   }
@@ -118,14 +138,14 @@ const QuoteDetailsPage = () => {
           startIcon={<ArrowBack />}
           variant="text"
           onClick={() => navigate(-1)}
-          sx={{ mb: 2, color: colors.primary[500] }}
+          sx={{ mb: 2 }}
         >
           Back
         </Button>
-        <Typography variant="h5" color={colors.error} gutterBottom>
+        <Typography variant="h5" color="error" gutterBottom>
           Failed to load quote
         </Typography>
-        <Typography variant="body2" color={colors.neutral[600]}>
+        <Typography variant="body2">
           {error?.message || 'Quote not found or something went wrong.'}
         </Typography>
       </Box>
@@ -152,40 +172,42 @@ const QuoteDetailsPage = () => {
     quote_schedule
   } = quote;
 
-  const handleSchedule = async () => {
-    if (!selectedDate) return;
-    // Here you can call an API or handle scheduling
-    console.log("Scheduled date:", selectedDate, quote_schedule?.quoted_by);
-    const payload = {
-      id: quote.id,
-      scheduled_date: selectedDate,
-      is_submitted: true,
-      quoted_by: quote_schedule?.quoted_by,  // must not be undefined
-    };
-    try {
-      const response = await createSchedule(payload).unwrap()
-      await refetch();
-    } catch (err) {
-      console.error("Failed.", err)
+  const formatPrice = (price) => {
+    const numPrice = typeof price === "string" ? Number.parseFloat(price) : price;
+    return numPrice.toFixed(2);
+  };
+
+  const renderQuestionResponse = (response) => {
+    switch (response.question_type) {
+      case "yes_no":
+      case "conditional":
+        return response.yes_no_answer ? "Yes" : "No";
+      case "multiple_yes_no":
+        return (
+          response.sub_question_responses
+            .filter((sub) => sub.answer)
+            .map((sub) => sub.sub_question_text)
+            .join(", ") || "None selected"
+        );
+      case "quantity":
+        return response.option_responses.map((opt) => `${opt.option_text}: ${opt.quantity}`).join(", ");
+      case "describe":
+        return response.option_responses.map((opt) => opt.option_text).join(", ");
+      default:
+        return "N/A";
     }
   };
 
   return (
-    <Box 
-      className="min-h-screen" 
-      sx={{ 
-        bgcolor: colors.neutral[50],
-        pb: 6 
-      }}
-    >
+    <Box className="min-h-screen" sx={{ background: 'linear-gradient(135deg,#f0f4f9 0%,#e2e8f0 70%)', pb: 6 }}>
       {/* Header */}
       <Box
         sx={{
           bgcolor: 'white',
-          borderBottom: `1px solid ${colors.neutral[200]}`,
+          borderBottom: 1,
+          borderColor: 'divider',
           mb: 4,
-          py: 3,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          py: 2,
         }}
         className='fixed w-full z-20'
       >
@@ -193,23 +215,23 @@ const QuoteDetailsPage = () => {
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={2}>
               <Box>
-                <Typography variant="h4" fontWeight="600" color={colors.neutral[900]}>
+                <Typography variant="h4" color='#023c8f' fontWeight="600">
                   Quote Details
                 </Typography>
                 <Box display="flex" alignItems="center" gap={2} mt={0.5}>
-                  <Typography variant="body2" color={colors.neutral[600]}>
+                  <Typography variant="body2" color="text.secondary">
                     ID: {quote.id}
                   </Typography>
                   <Chip
                     label={status?.charAt(0).toUpperCase() + status?.slice(1)}
                     size="small"
                     sx={{
-                      fontWeight: 500,
-                      borderRadius: 1.5,
+                      fontWeight: 600,
+                      borderRadius: 1,
                       ...statusStyles[status?.toLowerCase()] || statusStyles['draft'],
                     }}
                   />
-                  <Typography variant="body2" color={colors.neutral[600]}>
+                  <Typography variant="body2" color="text.secondary">
                     Created: {new Date(created_at).toLocaleDateString()}
                   </Typography>
                 </Box>
@@ -220,703 +242,607 @@ const QuoteDetailsPage = () => {
       </Box>
 
       {/* Body */}
-      <Box maxWidth="1300px" className='py-36' mx="auto" px={{ xs: 2, md: 4 }}>
-        <Box display="grid" gridTemplateColumns={{ xs: '1fr', lg: '2fr 1fr' }} gap={6}>
-          {/* Left column */}
-          <Box display="flex" flexDirection="column" gap={4}>
-            {/* Contact Card */}
-            <Card sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: `1px solid ${colors.neutral[200]}` }}>
-              <Box
-                sx={{
-                  bgcolor: colors.primary[500],
-                  color: 'white',
-                  px: 3,
-                  py: 2.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                }}
-              >
-                <Person fontSize="small" />
-                <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                  Contact Information
-                </Typography>
-              </Box>
-              <CardContent sx={{ p: 3 }}>
-                <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }} gap={4}>
-                  <Box flex="1" display="flex" flexDirection="column" gap={2.5}>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar sx={{ bgcolor: colors.neutral[100], color: colors.neutral[600], width: 32, height: 32 }}>
-                        <Person fontSize="small" />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                          {contact?.first_name || '—'} {contact?.last_name}
-                        </Typography>
-                        <Typography variant="caption" color={colors.neutral[500]}>
-                          Full Name
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar sx={{ bgcolor: colors.neutral[100], color: colors.neutral[600], width: 32, height: 32 }}>
-                        <Phone fontSize="small" />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                          {contact?.phone || '—'}
-                        </Typography>
-                        <Typography variant="caption" color={colors.neutral[500]}>
-                          Phone
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                  <Box flex="1" display="flex" flexDirection="column" gap={2.5}>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar sx={{ bgcolor: colors.neutral[100], color: colors.neutral[600], width: 32, height: 32 }}>
-                        <Mail fontSize="small" />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                          {contact?.email || '—'}
-                        </Typography>
-                        <Typography variant="caption" color={colors.neutral[500]}>
-                          Email
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box display="flex" alignItems="flex-start" gap={2}>
-                      <Avatar sx={{ bgcolor: colors.neutral[100], color: colors.neutral[600], width: 32, height: 32 }}>
-                        <Home fontSize="small" />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                          {address?.name} — {address?.street_address}, {address?.city}, {address?.state}, {address?.postal_code}
-                        </Typography>
-                        <Typography variant="caption" color={colors.neutral[500]}>
-                          Address
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
-                {house_sqft && (
-                  <>
-                    <Divider sx={{ my: 3, borderColor: colors.neutral[200] }} />
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar sx={{ bgcolor: colors.neutral[100], color: colors.neutral[600], width: 32, height: 32 }}>
-                        <Home fontSize="small" />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="body2" color={colors.neutral[900]} fontWeight="500">
-                          {house_sqft} sq ft
-                        </Typography>
-                        <Typography variant="caption" color={colors.neutral[500]}>
-                          House Size
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Services & Packages Card */}
-            {service_selections && service_selections.length > 0 && (
-              <Card sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: `1px solid ${colors.neutral[200]}` }}>
-                <Box
-                  sx={{
-                    bgcolor: colors.primary[500],
-                    color: 'white',
-                    px: 3,
-                    py: 2.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                  }}
-                >
-                  <BusinessCenter fontSize="small" />
-                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                    Services & Packages
-                  </Typography>
-                  <Chip
-                    label={`${service_selections.length} Service${service_selections.length !== 1 ? 's' : ''}`}
-                    size="small"
-                    sx={{
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      color: 'white',
-                      ml: 'auto',
-                      fontWeight: 500,
-                    }}
-                  />
-                </Box>
+      <Box maxWidth="1400px" className='py-32' mx="auto" px={{ xs: 2, md: 4 }}>
+        <Container maxWidth="lg">
+          <Box display="grid" gridTemplateColumns={{ xs: '1fr', lg: '2fr 1fr' }} gap={6}>
+            {/* Left column */}
+            <Box display="flex" flexDirection="column" gap={2}>
+              {/* Customer Info */}
+              <Card>
                 <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" flexDirection="column" gap={4}>
-                    {service_selections.map((serviceSelection, index) => (
-                      <Box key={serviceSelection.id}>
-                        <Box display="flex" flexDirection="column" gap={3}>
-                          <Box>
-                            <Typography variant="h6" fontWeight="500" color={colors.neutral[900]}>
-                              {serviceSelection.service_details?.name}
-                            </Typography>
-                            {serviceSelection.service_details?.description && (
-                              <Typography variant="body2" color={colors.neutral[600]} sx={{ mt: 0.5 }}>
-                                {serviceSelection.service_details.description}
-                              </Typography>
-                            )}
-                          </Box>
-                          <Box
-                            sx={{
-                              background: colors.neutral[50],
-                              borderRadius: 2,
-                              p: 3,
-                              border: `1px solid ${colors.neutral[200]}`,
-                            }}
-                          >
-                            <Box display="flex" alignItems="center" gap={2} mb={2}>
-                              <LocalOffer fontSize="small" sx={{ color: colors.neutral[600] }} />
-                              <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                                {serviceSelection.selected_package_details?.name} - ${parseFloat(serviceSelection.selected_package_details?.base_price || 0).toFixed(2)}
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: colors.neutral[700], ml: 'auto', fontWeight: 500 }}>
-                                Final: ${parseFloat(serviceSelection.final_total_price || 0).toFixed(2)}
-                              </Typography>
-                            </Box>
-                            
-                            {/* Question Adjustments */}
-                            {parseFloat(serviceSelection.question_adjustments || 0) !== 0 && (
-                              <Typography variant="caption" sx={{ color: colors.neutral[600], display: 'block', mb: 2 }}>
-                                Question Adjustments: ${parseFloat(serviceSelection.question_adjustments || 0).toFixed(2)}
-                              </Typography>
-                            )}
-                            
-                            {serviceSelection.package_quotes?.[0] && (
-                              <Box>
-                                <Typography variant="caption" fontWeight="500" gutterBottom color={colors.neutral[700]}>
-                                  Package Features:
-                                </Typography>
-                                <Box display="flex" flexDirection="column" gap={1.5} mt={1}>
-                                  {/* Included Features */}
-                                  {serviceSelection.package_quotes[0].included_features_details?.map((feature) => (
-                                    <Box
-                                      key={feature.id}
-                                      sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 2,
-                                        p: 2,
-                                        borderRadius: 1.5,
-                                        background: 'white',
-                                        border: `1px solid ${colors.neutral[200]}`,
-                                      }}
-                                    >
-                                      <Box
-                                        sx={{
-                                          width: 8,
-                                          height: 8,
-                                          borderRadius: '50%',
-                                          background: colors.success,
-                                        }}
-                                      />
-                                      <Typography variant="body2" sx={{ color: colors.neutral[800], fontSize: '0.875rem' }}>
-                                        {feature.name}
-                                      </Typography>
-                                      <Chip
-                                        label="Included"
-                                        size="small"
-                                        sx={{
-                                          ml: 'auto',
-                                          bgcolor: colors.neutral[100],
-                                          color: colors.neutral[700],
-                                          fontSize: '0.7rem',
-                                          height: 22,
-                                        }}
-                                      />
-                                    </Box>
-                                  ))}
-                                  {/* Excluded Features */}
-                                  {serviceSelection.package_quotes[0].excluded_features_details?.map((feature) => (
-                                    <Box
-                                      key={feature.id}
-                                      sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 2,
-                                        p: 2,
-                                        borderRadius: 1.5,
-                                        background: 'white',
-                                        border: `1px solid ${colors.neutral[200]}`,
-                                        opacity: 0.6,
-                                      }}
-                                    >
-                                      <Box
-                                        sx={{
-                                          width: 8,
-                                          height: 8,
-                                          borderRadius: '50%',
-                                          background: colors.neutral[400],
-                                        }}
-                                      />
-                                      <Typography variant="body2" sx={{ color: colors.neutral[600], fontSize: '0.875rem' }}>
-                                        {feature.name}
-                                      </Typography>
-                                      <Chip
-                                        label="Excluded"
-                                        size="small"
-                                        sx={{
-                                          ml: 'auto',
-                                          bgcolor: colors.neutral[100],
-                                          color: colors.neutral[500],
-                                          fontSize: '0.7rem',
-                                          height: 22,
-                                        }}
-                                      />
-                                    </Box>
-                                  ))}
-                                </Box>
-                              </Box>
-                            )}
-                          </Box>
-                        </Box>
-                        {index < service_selections.length - 1 && <Divider sx={{ my: 3, borderColor: colors.neutral[200] }} />}
-                      </Box>
-                    ))}
-                  </Box>
+                  <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+                    Customer Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Name
+                      </Typography>
+                      <Typography variant="body1">{contact?.first_name} {contact?.last_name}</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Email
+                      </Typography>
+                      <Typography variant="body1">{contact?.email}</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Phone
+                      </Typography>
+                      <Typography variant="body1">{contact?.phone}</Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        House sq ft
+                      </Typography>
+                      <Typography variant="body1">{house_sqft} sq ft</Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">
+                        Address
+                      </Typography>
+                      <Typography variant="body1">{address?.name} — {address?.street_address}, {address?.city}, {address?.state}, {address?.postal_code}</Typography>
+                    </Grid>
+                  </Grid>
                 </CardContent>
               </Card>
-            )}
 
-            {/* Custom Products Card */}
-            {custom_products && custom_products.length > 0 && (
-              <Card sx={{ borderRadius: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: `1px solid ${colors.neutral[200]}` }}>
-                <Box
+              {/* Enhanced Scheduling Section */}
+              {!quote_schedule?.is_submitted ? (
+                <Card
+                  elevation={6}
                   sx={{
-                    bgcolor: colors.primary[500],
-                    color: "white",
-                    px: 3,
-                    py: 2.5,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
+                    borderRadius: 3,
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
                   }}
                 >
-                  <LocalOffer fontSize="small" />
-                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                    Custom Services
-                  </Typography>
-                  <Chip
-                    label={`${custom_products.length} Service${custom_products.length !== 1 ? "s" : ""}`}
-                    size="small"
-                    sx={{
-                      backgroundColor: "rgba(255,255,255,0.2)",
-                      color: "white",
-                      ml: "auto",
-                      fontWeight: 500,
-                    }}
-                  />
-                </Box>
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" flexDirection="column" gap={3}>
-                    {custom_products.map((product) => (
-                      <Box
-                        key={product.id}
-                        sx={{
-                          background: colors.neutral[50],
-                          border: `1px solid ${colors.neutral[200]}`,
-                          borderRadius: 2,
-                          p: 3,
-                        }}
-                      >
-                        <Typography variant="subtitle1" fontWeight="500" color={colors.neutral[900]}>
-                          {product.product_name}
-                        </Typography>
-                        {product.description && (
-                          <Typography variant="body2" color={colors.neutral[600]} sx={{ mb: 2 }}>
-                            {product.description}
-                          </Typography>
-                        )}
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography variant="caption" color={colors.neutral[500]}>
-                            Product ID: {product.id}
-                          </Typography>
-                          <Typography variant="subtitle2" fontWeight="500" color={colors.neutral[800]}>
-                            ${parseFloat(product.price || 0).toFixed(2)}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Question Responses */}
-            {service_selections?.some(service => service.question_responses?.length > 0) && (
-              <Card sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: `1px solid ${colors.neutral[200]}` }}>
-                <Box
-                  sx={{
-                    bgcolor: colors.primary[500],
-                    color: 'white',
-                    px: 3,
-                    py: 2.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                  }}
-                >
-                  <QuestionAnswer fontSize="small" />
-                  <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                    Question Responses
-                  </Typography>
-                </Box>
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" flexDirection="column" gap={4}>
-                    {service_selections.map((service, serviceIndex) => (
-                      service.question_responses?.length > 0 && (
-                        <Box key={service.id}>
-                          {service_selections.length > 1 && (
-                            <Typography variant="h6" sx={{ mb: 3, color: colors.neutral[900], fontWeight: 500 }}>
-                              {service.service_details?.name}
-                            </Typography>
-                          )}
-                          <Box display="flex" flexDirection="column" gap={3}>
-                            {service.question_responses.map((response) => {
-                              const renderAnswerDisplay = () => {
-                                switch (response.question_type) {
-                                  case 'yes_no':
-                                  case 'conditional':
-                                    return formatYesNo(response.yes_no_answer);
-                                  
-                                  case 'describe':
-                                  case 'options':
-                                    if (response.option_responses?.length > 0) {
-                                      return response.option_responses.map(opt => opt.option_text).join(', ');
-                                    }
-                                    if (response.text_answer) {
-                                      return response.text_answer;
-                                    }
-                                    return 'Not answered';
-                                  
-                                  case 'quantity':
-                                    if (response.option_responses?.length > 0) {
-                                      return response.option_responses
-                                        .map(opt => `${opt.option_text} (Qty: ${opt.quantity})`)
-                                        .join(', ');
-                                    }
-                                    return 'Not answered';
-                                  
-                                  case 'multiple_yes_no':
-                                    if (response.sub_question_responses?.length > 0) {
-                                      return (
-                                        <Box sx={{ mt: 2 }}>
-                                          {response.sub_question_responses.map((subResp) => (
-                                            <Box key={subResp.id} sx={{
-                                              display: 'flex',
-                                              justifyContent: 'space-between',
-                                              py: 1.5,
-                                              px: 2,
-                                              mb: 1,
-                                              borderRadius: 1,
-                                              background: colors.neutral[50],
-                                              border: `1px solid ${colors.neutral[200]}`
-                                            }}>
-                                              <Typography variant="body2" sx={{ fontSize: '0.875rem', color: colors.neutral[800] }}>
-                                                {subResp.sub_question_text}
-                                              </Typography>
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography
-                                                  variant="body2"
-                                                  sx={{
-                                                    fontWeight: 500,
-                                                    color: subResp.answer ? colors.success : colors.neutral[600]
-                                                  }}
-                                                >
-                                                  {formatYesNo(subResp.answer)}
-                                                </Typography>
-                                                {parseFloat(subResp.price_adjustment || 0) !== 0 && (
-                                                  <Chip
-                                                    label={`$${parseFloat(subResp.price_adjustment).toFixed(2)}`}
-                                                    size="small"
-                                                    sx={{
-                                                      bgcolor: colors.neutral[100],
-                                                      color: colors.neutral[700],
-                                                      fontSize: '0.75rem',
-                                                      height: 22
-                                                    }}
-                                                  />
-                                                )}
-                                              </Box>
-                                            </Box>
-                                          ))}
-                                        </Box>
-                                      );
-                                    }
-                                    return 'Not answered';
-                                  
-                                  default:
-                                    if (response.text_answer) {
-                                      return response.text_answer;
-                                    }
-                                    return 'Not answered';
-                                }
-                              };
-
-                              const answerDisplay = renderAnswerDisplay();
-                              
-                              return (
-                                <Box
-                                  key={response.id}
-                                  sx={{
-                                    background: colors.neutral[50],
-                                    borderRadius: 2,
-                                    p: 3,
-                                    border: `1px solid ${colors.neutral[200]}`,
-                                  }}
-                                >
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                    <Typography variant="subtitle2" fontWeight="500" sx={{ flex: 1, color: colors.neutral[900] }}>
-                                      {response.question_text}
-                                    </Typography>
-                                    <Chip
-                                      label={response.question_type.replace('_', ' ').toUpperCase()}
-                                      size="small"
-                                      sx={{
-                                        bgcolor: colors.neutral[100],
-                                        color: colors.neutral[700],
-                                        fontSize: '0.7rem',
-                                        height: 22,
-                                        ml: 2
-                                      }}
-                                    />
-                                  </Box>
-                                  
-                                  {response.question_type !== 'multiple_yes_no' ? (
-                                    <Typography variant="body2" sx={{ mb: 1, color: colors.neutral[700] }}>
-                                      <strong>Answer:</strong> {answerDisplay}
-                                    </Typography>
-                                  ) : (
-                                    <Box>
-                                      <Typography variant="body2" sx={{ mb: 2, fontWeight: 500, color: colors.neutral[700] }}>
-                                        Responses:
-                                      </Typography>
-                                      {answerDisplay}
-                                    </Box>
-                                  )}
-                                </Box>
-                              );
-                            })}
-                          </Box>
-                          {serviceIndex < service_selections.length - 1 && <Divider sx={{ my: 3, borderColor: colors.neutral[200] }} />}
-                        </Box>
-                      )
-                    ))}
-                    
-                    {/* Additional Information */}
-                    {additional_data && (
-                      <Card sx={{ border: `1px solid ${colors.neutral[300]}`, borderRadius: 2, mt: 2 }}>
-                        <Box sx={{ p: 3, borderBottom: `1px solid ${colors.neutral[200]}` }}>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar sx={{ bgcolor: colors.primary[500] }}>
-                              <Info />
-                            </Avatar>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                              Additional Information
-                            </Typography>
-                          </Stack>
-                        </Box>
-                        <CardContent sx={{ p: 3 }}>
-                          <Stack spacing={3}>
-                            {additional_data.signature && (
-                              <Box>
-                                <Typography variant="subtitle2" sx={{ color: "#64748b", mb: 1 }}>
-                                  Signature
-                                </Typography>
-                                <img
-                                  src={`data:image/png;base64,${additional_data.signature}`}
-                                  alt="Signature"
-                                  style={{ border: "1px solid #ccc", maxWidth: "200px" }}
-                                />
-                              </Box>
-                            )}
-
-                            {additional_data.additional_notes && (
-                              <Box>
-                                <Typography variant="subtitle2" sx={{ color: "#64748b", mb: 1 }}>
-                                  Additional Notes
-                                </Typography>
-                                <Box
-                                  sx={{
-                                    border: "1px solid #334155",
-                                    borderRadius: 1,
-                                    p: 2,
-                                  }}
-                                >
-                                  <Typography variant="body2" >
-                                    {additional_data.additional_notes}
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            )}
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            )}
-          </Box>
-
-          {/* Right column - pricing */}
-          <Box>
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: 2,
-                position: 'sticky',
-                top: 100,
-                overflow: 'hidden',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                border: `1px solid ${colors.neutral[200]}`,
-              }}
-            >
-              <Box
-                sx={{
-                  bgcolor: colors.primary[500],
-                  color: 'white',
-                  px: 3,
-                  py: 2.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                }}
-              >
-                <Receipt fontSize="small" />
-                <Typography variant="h6" sx={{ fontWeight: 500 }}>
-                  Pricing Summary
-                </Typography>
-              </Box>
-              <CardContent sx={{ p: 3 }}>
-                <Box display="flex" flexDirection="column" gap={2.5}>
-                  <Box display="flex" flexDirection="column" gap={1}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        py: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color={colors.neutral[600]}>Base Price</Typography>
-                      <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                        ${parseFloat(total_base_price || 0).toFixed(2)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        py: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color={colors.neutral[600]}>Custom Services</Typography>
-                      <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                        ${parseFloat(custom_service_total || 0).toFixed(2)}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        py: 1,
-                      }}
-                    >
-                      <Typography variant="body2" color={colors.neutral[600]}>Adjustments</Typography>
-                      <Typography variant="body2" fontWeight="500" color={colors.neutral[900]}>
-                        ${parseFloat(total_adjustments || 0).toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Divider sx={{ borderColor: colors.neutral[300] }} />
-                  
                   <Box
                     sx={{
+                      background: 'linear-gradient(135deg, #023c8f 0%, #0056d3 100%)',
+                      color: 'white',
+                      px: 4,
+                      py: 3,
                       display: 'flex',
-                      justifyContent: 'space-between',
                       alignItems: 'center',
-                      background: colors.neutral[50],
-                      p: 2.5,
-                      borderRadius: 1.5,
-                      border: `1px solid ${colors.neutral[200]}`,
+                      gap: 2,
+                      borderRadius: '12px 12px 0 0',
                     }}
                   >
-                    <Typography variant="subtitle1" fontWeight="600" color={colors.neutral[900]}>
-                      Final Total
-                    </Typography>
-                    <Box textAlign="right">
-                      <Typography variant="h6" color={colors.neutral[900]} fontWeight="600">
-                        ${parseFloat(final_total * 1.0825 || 0).toFixed(2)}
+                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
+                      <Schedule />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                        Schedule Quote
                       </Typography>
-                      <Typography variant="caption" color={colors.neutral[500]} fontWeight="500">
-                        Plus Tax
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Choose your preferred date and time
                       </Typography>
                     </Box>
                   </Box>
                   
-                  <Divider sx={{ borderColor: colors.neutral[300] }} />
+                  <CardContent sx={{ p: 4 }}>
+                    <Alert 
+                      severity="info" 
+                      sx={{ 
+                        mb: 3,
+                        bgcolor: '#e3f2fd',
+                        border: '1px solid #1976d2',
+                        borderRadius: 2,
+                      }}
+                    >
+                      <AlertTitle sx={{ fontWeight: 600 }}>Ready to Schedule?</AlertTitle>
+                      Select your preferred date and time to book this service with our team.
+                    </Alert>
 
-                  {!quote_schedule?.is_submitted?
-                    <Box>
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, color: '#023c8f' }}>
+                        <CalendarToday sx={{ mr: 1, verticalAlign: 'middle', fontSize: 20 }} />
+                        Select Date & Time
+                      </Typography>
+                      
                       <LocalizationProvider dateAdapter={AdapterDateFns}>
                         <DateTimePicker
-                          label="Select Date & Time"
+                          label="Choose Date & Time"
                           value={selectedDate}
                           onChange={(newValue) => setSelectedDate(newValue)}
+                          minDateTime={new Date()}
                           slotProps={{
                             textField: {
                               fullWidth: true,
-                              size: "small",
+                              size: "medium",
+                              sx: {
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: 2,
+                                  bgcolor: 'white',
+                                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#023c8f',
+                                  },
+                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: '#023c8f',
+                                  },
+                                },
+                              },
                             },
                           }}
                         />
                       </LocalizationProvider>
-
-                      <Button
-                        variant="contained"
-                        fullWidth
-                        sx={{
-                          mt: 2,
-                          bgcolor: colors.primary[600],
-                          "&:hover": { bgcolor: colors.primary[700] },
-                          borderRadius: 2,
-                          textTransform: "none",
-                          fontWeight: 500,
-                        }}
-                        onClick={handleSchedule}
-                        disabled={!selectedDate}
-                      >
-                        Schedule
-                      </Button>
                     </Box>
-                    :
-                    <Typography variant="caption" color={colors.neutral[500]} align="center">
-                      Quote Scheduled on{' '}
-                      {new Date(quote_schedule?.scheduled_date).toLocaleString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+
+                    {selectedDate && (
+                      <Alert 
+                        severity="success" 
+                        sx={{ 
+                          mb: 3,
+                          bgcolor: '#f1f8e9',
+                          border: '1px solid #4caf50',
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Typography variant="body2">
+                          <strong>Selected:</strong> {selectedDate.toLocaleDateString()} at {selectedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
+                      </Alert>
+                    )}
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      size="large"
+                      sx={{
+                        py: 2,
+                        bgcolor: selectedDate ? '#42bd3f' : '#023c8f',
+                        "&:hover": { 
+                          bgcolor: selectedDate ? '#369932' : '#012a6b',
+                          transform: 'translateY(-1px)',
+                        },
+                        borderRadius: 2,
+                        textTransform: "none",
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        transition: 'all 0.3s ease',
+                        boxShadow: selectedDate ? '0 4px 20px rgba(66, 189, 63, 0.3)' : '0 4px 20px rgba(2, 60, 143, 0.3)',
+                      }}
+                      onClick={handleSchedule}
+                      disabled={!selectedDate}
+                      startIcon={<AccessTime />}
+                    >
+                      {selectedDate ? 'Confirm Schedule' : 'Select Date to Schedule'}
+                    </Button>
+
+                    <Typography variant="caption" color="text.secondary" align="center" sx={{ display: 'block', mt: 2 }}>
+                      Our team will confirm your appointment shortly after scheduling
                     </Typography>
-                  }
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card
+                  elevation={4}
+                  sx={{
+                    borderRadius: 3,
+                    // border: '2px solid #42bd3f',
+                    background: 'linear-gradient(135deg, #f1f8e9 0%, #e8f5e8 100%)',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      background: 'linear-gradient(135deg, #42bd3f 0%, #369932 100%)',
+                      color: 'white',
+                      px: 4,
+                      py: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      borderRadius: '12px 12px 0 0',
+                    }}
+                  >
+                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
+                      <CheckCircle />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+                        Scheduled
+                      </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                        Your service is confirmed
+                      </Typography>
+                    </Box>
+                  </Box>
                   
-                  <Box textAlign="center" pt={1}>
-                    <Typography variant="caption" color={colors.neutral[500]} align="center">
+                  <CardContent sx={{ p: 4 }}>
+                    <Alert 
+                      severity="success" 
+                      sx={{ 
+                        bgcolor: 'rgba(255,255,255,0.8)',
+                        border: 'none',
+                        borderRadius: 2,
+                      }}
+                    >
+                      <AlertTitle sx={{ fontWeight: 600 }}>Service Scheduled!</AlertTitle>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        <strong>Date & Time:</strong><br />
+                        {new Date(quote_schedule?.scheduled_date).toLocaleDateString(undefined, {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}<br />
+                        <AccessTime sx={{ mr: 1, verticalAlign: 'middle', fontSize: 16 }} />
+                        {new Date(quote_schedule?.scheduled_date).toLocaleTimeString(undefined, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Typography>
+                    </Alert>
+                    
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 3 }}>
+                      Our team will contact you before the scheduled date to confirm details
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Service Selections */}
+              {service_selections?.map((selection) => (
+                <Card key={selection.id}>
+                  {/* Service Header */}
+                  <Box
+                    sx={{
+                      px: 3,
+                      py: 0.5,
+                      backgroundColor: '#023c8f',
+                      color: 'white',
+                      cursor: "pointer",
+                      "&:hover": { bgcolor: "#012a6b" },
+                    }}
+                    onClick={() => toggleServiceExpansion(selection.id)}
+                  >
+                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                      <Box>
+                        <Typography variant="h6" fontWeight={600} sx={{ color: 'white' }}>
+                          {selection.service_details?.name}
+                        </Typography>
+                      </Box>
+                      <IconButton sx={{ color: 'white' }}>
+                        {expandedServices[selection.id] ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                    </Box>
+                  </Box>
+
+                  {/* Collapsible Content */}
+                  <Collapse in={expandedServices[selection.id]} timeout="auto" unmountOnExit>
+                    <Box sx={{ px: 3, py: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{mb:1}}>
+                        {selection.service_details?.description}
+                      </Typography>
+
+                      {/* Selected Package Display */}
+                      {selection.selected_package_details && (
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+                            Selected Package
+                          </Typography>
+                          <Card
+                            variant="outlined"
+                            sx={{
+                              border: "2px solid #42bd3f",
+                              bgcolor: "#f8fff8",
+                              borderRadius: 3,
+                              minHeight: 220,
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <CardContent sx={{ p: 4 }}>
+                              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                                <Typography variant="h6" fontWeight={700}>
+                                  {selection.selected_package_details.name}
+                                </Typography>
+                                <Chip
+                                  label="Selected"
+                                  sx={{
+                                    bgcolor: "#42bd3f",
+                                    color: "white",
+                                    fontWeight: 600,
+                                  }}
+                                />
+                              </Box>
+
+                              <Typography variant="h4" sx={{ color: "#42bd3f", fontWeight: 700, mb: 2 }}>
+                                ${formatPrice(selection.final_total_price)}
+                              </Typography>
+
+                              {/* Features List */}
+                              <Box>
+                                {selection.package_quotes?.[0] && (
+                                  <>
+                                    {[
+                                      ...(selection.package_quotes[0].included_features_details || []).map((f) => ({
+                                        ...f,
+                                        included: true,
+                                      })),
+                                      ...(selection.package_quotes[0].excluded_features_details || []).map((f) => ({
+                                        ...f,
+                                        included: false,
+                                      })),
+                                    ].map((feature) => (
+                                      <Box key={feature.id} display="flex" alignItems="center" mb={0.8}>
+                                        {feature.included ? (
+                                          <Check sx={{ fontSize: 18, color: "#42bd3f", mr: 1 }} />
+                                        ) : (
+                                          <Close sx={{ fontSize: 18, color: "#9e9e9e", mr: 1 }} />
+                                        )}
+                                        <Typography
+                                          variant="body2"
+                                          sx={{
+                                            color: feature.included ? "text.primary" : "text.disabled",
+                                            fontWeight: feature.included ? 500 : 400,
+                                          }}
+                                        >
+                                          {feature.name}
+                                        </Typography>
+                                      </Box>
+                                    ))}
+                                  </>
+                                )}
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Box>
+                      )}
+
+                      {/* Question Responses */}
+                      {selection.question_responses?.length > 0 && (
+                        <Box mt={4}>
+                          <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#023c8f' }} gutterBottom>
+                            Question Responses
+                          </Typography>
+                          <Grid container spacing={2}>
+                            {selection.question_responses.map((response) => (
+                              <Grid item xs={12} sm={6} key={response.id}>
+                                <Box p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, border: "1px solid #023c8f" }}>
+                                  <Typography variant="body2" fontWeight={600} gutterBottom sx={{ color: '#023c8f' }}>
+                                    {response.question_text}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.primary">
+                                    {renderQuestionResponse(response)}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            ))}
+                          </Grid>
+                        </Box>
+                      )}
+                    </Box>
+                  </Collapse>
+                </Card>
+              ))}
+
+              {/* Custom Products/Services */}
+              {custom_products && custom_products.length > 0 && (
+                <Card>
+                  <Box sx={{ p: 3, py: 2 }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <Avatar sx={{ bgcolor: "#023c8f" }}>
+                        <Add />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#023c8f' }}>
+                          Custom Services
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {custom_products.length} custom service{custom_products.length > 1 ? 's' : ''} added
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                  <Divider />
+                  <Box sx={{ overflow: 'hidden' }}>
+                    {custom_products.map((product, index) => (
+                      <Box
+                        key={product.id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 3,
+                          borderBottom: index < custom_products.length - 1 ? '1px solid #f0f0f0' : 'none',
+                          '&:hover': {
+                            bgcolor: '#f8f9fa',
+                          },
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      >
+                        <Box sx={{ flex: 1, mr: 2 }}>
+                          <Typography 
+                            variant="subtitle1" 
+                            fontWeight={600}
+                            sx={{ color: '#023c8f', mb: 0.5 }}
+                          >
+                            {product.product_name}
+                          </Typography>
+                          {product.description && (
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary"
+                              sx={{ 
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {product.description}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                          <Typography 
+                            variant="h6" 
+                            fontWeight={700}
+                            sx={{ color: '#42bd3f' }}
+                          >
+                            ${formatPrice(product.price)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                </Card>
+              )}
+
+              {/* Additional Information */}
+              {additional_data && (additional_data?.signature || additional_data?.additional_notes) && (
+                <Card>
+                  <Box sx={{ p: 3, py: 2 }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <Avatar sx={{ bgcolor: "#023c8f" }}>
+                        <Info />
+                      </Avatar>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#023c8f' }}>
+                        Additional Information
+                      </Typography>
+                    </Stack>
+                  </Box>
+                  <Divider />
+                  <CardContent sx={{ p: 3 }}>
+                    <Stack spacing={3}>
+                      {additional_data.signature && (
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ color: "#64748b", mb: 1 }}>
+                            Signature
+                          </Typography>
+                          <img
+                            src={`data:image/png;base64,${additional_data.signature}`}
+                            alt="Signature"
+                            style={{ border: "1px solid #ccc", maxWidth: "200px" }}
+                          />
+                        </Box>
+                      )}
+
+                      {additional_data.additional_notes && (
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ color: "#64748b", mb: 1 }}>
+                            Additional Notes
+                          </Typography>
+                          <Box
+                            sx={{
+                              border: "1px solid #334155",
+                              borderRadius: 1,
+                              p: 2,
+                            }}
+                          >
+                            <Typography variant="body2">
+                              {additional_data.additional_notes}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
+            </Box>
+
+            {/* Right column - pricing */}
+            <Box>
+              <Paper
+                elevation={3}
+                sx={{
+                  borderRadius: 2,
+                  position: 'sticky',
+                  top: 80,
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  sx={{
+                    background: '#023c8f',
+                    color: 'white',
+                    px: 3,
+                    py: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                  }}
+                >
+                  <Receipt fontSize="small" />
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Pricing Summary
+                  </Typography>
+                </Box>
+                <CardContent>
+                  <Box display="flex" flexDirection="column" gap={2}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography variant="body2">Base Price</Typography>
+                      <Typography variant="subtitle2">
+                        ${formatPrice(total_base_price || 0)}
+                      </Typography>
+                    </Box>
+                    
+                    {/* Custom Services Price */}
+                    {custom_service_total && parseFloat(custom_service_total) > 0 && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Typography variant="body2">Custom Services</Typography>
+                        <Typography variant="subtitle2">
+                          ${formatPrice(custom_service_total)}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography variant="body2">Adjustments</Typography>
+                      <Typography variant="subtitle2">
+                        ${formatPrice(total_adjustments || 0)}
+                      </Typography>
+                    </Box>
+                    
+                    <Divider />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(243,244,246,0.5)',
+                        p: 1,
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Typography variant="subtitle1" fontWeight="600">
+                        Final Total
+                      </Typography>
+                      <div className='flex flex-col'>
+                        <Typography variant="h5" fontWeight="500" color="#42bd3f">
+                          ${formatPrice(final_total * 1.0825 || 0)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" align="center">
+                          Plus Tax
+                        </Typography>
+                      </div>
+                    </Box>
+                    <Divider />
+                    <Typography variant="caption" color="text.secondary" align="center">
                       Quote created on{' '}
                       {new Date(created_at).toLocaleString(undefined, {
                         year: 'numeric',
@@ -927,11 +853,11 @@ const QuoteDetailsPage = () => {
                       })}
                     </Typography>
                   </Box>
-                </Box>
-              </CardContent>
-            </Paper>
+                </CardContent>
+              </Paper>
+            </Box>
           </Box>
-        </Box>
+        </Container>
       </Box>
     </Box>
   );

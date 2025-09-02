@@ -35,8 +35,6 @@ export const BookingWizard = () => {
   const [addiditional_notes, setAdditionalNotes] = useState();
   const [termsAccepted, setTermsAccepted] = useState(false)
 
-  const sigCanvasRef = useRef(null);
-
   // Fetch if submission_id present
   const {
     data: submissionData,
@@ -492,7 +490,7 @@ export const BookingWizard = () => {
     });
   }
 
-  const   isStepComplete = (step) => {
+  const isStepComplete = (step) => {
     switch (step) {
       case 0: {
       const {
@@ -532,7 +530,8 @@ export const BookingWizard = () => {
         return <QuestionsForm data={bookingData} onUpdate={updateBookingData} />;
       case 3:
         return <CheckoutSummary data={bookingData} onUpdate={updateBookingData} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted}
-        additionalNotes={addiditional_notes} setAdditionalNotes={setAdditionalNotes} setActiveStep={setActiveStep}
+        additionalNotes={addiditional_notes} setAdditionalNotes={setAdditionalNotes} setActiveStep={setActiveStep} handleSignatureEnd={handleSignatureEnd} setSignature={setSignature}
+        isStepComplete={isStepComplete} handleNext={handleNext}
         />;
       default:
         return "Unknown step";
@@ -541,7 +540,7 @@ export const BookingWizard = () => {
 
   const progressPercentage = ((activeStep + 1) / steps.length) * 100
 
-  const handleSignatureEnd = () => {
+  const handleSignatureEnd = (sigCanvasRef) => {
     if (sigCanvasRef.current) {
       try {
         // Fixed signature capture - use getCanvas() instead of getTrimmedCanvas()
@@ -637,52 +636,25 @@ export const BookingWizard = () => {
               </Button>
 
               <div className="flex items-center justify-end w-full gap-3">
-                {activeStep === steps.length - 1 &&
-                  <Box mb={2} className='w-1/3'>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Signature
-                    </Typography>
-                    <SignatureCanvas
-                      ref={sigCanvasRef}
-                      penColor="black"
-                      canvasProps={{
-                        className: "border border-gray-300 rounded bg-white w-full h-40 sm:h-32",
-                      }}
-                      onEnd={handleSignatureEnd}
-                    />
-                    <div className="mt-2 flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          sigCanvasRef.current.clear();
-                          setSignature('');
-                        }}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  </Box>
+                {activeStep !== steps.length - 1 &&
+                  <Button
+                    onClick={handleNext}
+                    disabled={!isStepComplete(activeStep) || isSavingContact || submittingResponses || creatingQuote || submittingQuote}
+                    className="px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                  >
+                    {(isSavingContact || submittingResponses || creatingQuote) ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        {activeStep === 0 ? "Saving..." : 
+                        activeStep === 1 ? "Adding Services..." :
+                        activeStep === 2 ? "Submitting Responses..." :
+                        "Submitting Quote..."}
+                      </>
+                    ) :(
+                      "Next"
+                    )}
+                  </Button>
                 }
-
-                <Button
-                  onClick={handleNext}
-                  disabled={!isStepComplete(activeStep) || isSavingContact || submittingResponses || creatingQuote || submittingQuote}
-                  className="px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-                >
-                  {(isSavingContact || submittingResponses || creatingQuote) ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      {activeStep === 0 ? "Saving..." : 
-                      activeStep === 1 ? "Adding Services..." :
-                      activeStep === 2 ? "Submitting Responses..." :
-                      "Submitting Quote..."}
-                    </>
-                  ) : activeStep === steps.length - 1 ? (
-                    "Accept Quote"
-                  ) : (
-                    "Next"
-                  )}
-                </Button>
               </div>
             </div>
           </CardContent>

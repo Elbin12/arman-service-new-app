@@ -5,15 +5,6 @@ import {
   Card,
   CardContent,
   Divider,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
-  Paper,
-  CircularProgress,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Grid,
   Button,
   Radio,
@@ -22,32 +13,34 @@ import {
   FormControl,
   TextField,
   Checkbox,
+  Container,
+  CircularProgress,
+  Chip,
+  Collapse,
+  IconButton,
   Dialog,
   DialogContent,
   DialogTitle,
   DialogActions,
-  IconButton,
 } from '@mui/material';
 import {
-  Person,
-  BusinessCenter,
-  LocalOffer,
-  QuestionAnswer,
-  Receipt,
-  LocationOn,
-  ExpandMore,
   Check,
   Close,
+  ExpandMore,
+  ExpandLess,
   Add,
+  Remove,
   Edit,
   Delete,
 } from '@mui/icons-material';
 import { useCalculatePriceMutation } from '../../../store/api/user/priceApi';
 import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation } from '../../../store/api/user/quoteApi';
-import { Info } from 'lucide-react';
+import { useRef } from 'react';
+import SignatureCanvas from 'react-signature-canvas';
 
-export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes,setActiveStep }) => {
+export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes, handleSignatureEnd, setSignature, isStepComplete, handleNext, setActiveStep }) => {
   const [selectedPackages, setSelectedPackages] = useState({});
+  const [expandedServices, setExpandedServices] = useState({});
   const [customProducts, setCustomProducts] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({
@@ -55,19 +48,13 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     description: '',
     price: '',
   });
-
   const [editMode, setEditMode] = useState(false);
   const [currentProductId, setCurrentProductId] = useState(null);
-
-  const [updateCustomProduct] = useUpdateCustomProductMutation();
-  const [deleteCustomProduct] = useDeleteCustomProductMutation();
-
 
   const {
     data: response,
     isLoading,
     isError,
-    error
   } = useGetQuoteDetailsQuery(data.submission_id, {
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,
@@ -75,16 +62,24 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   });
 
   const [createCustomProduct, { isLoading: isCreating }] = useCreateCustomProductMutation();
+  const [updateCustomProduct] = useUpdateCustomProductMutation();
+  const [deleteCustomProduct] = useDeleteCustomProductMutation();
 
-  const quote_details = response;
+  const sigCanvasRef = useRef(null);
 
-  // Memoize the quote data to prevent unnecessary re-renders
-  const quoteData = useMemo(() => quote_details, [quote_details]);
+  const quoteData = useMemo(() => response, [response]);
 
-  console.log(quoteData, 'data', customProducts);
-  
+  // Expand all services by default
+  useEffect(() => {
+    if (quoteData?.service_selections) {
+      const initialExpanded = {};
+      quoteData.service_selections.forEach((service) => {
+        initialExpanded[service.id] = true;
+      });
+      setExpandedServices(initialExpanded);
+    }
+  }, [quoteData]);
 
-  // Only update parent when quote details first load or when selected packages change
   useEffect(() => {
     if (quoteData && !isLoading && !data.quoteDetails) {
       onUpdate({
@@ -105,62 +100,40 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     }
   }, [quoteData]);
 
-  // Handle package selection
-  const handlePackageSelect = (serviceSelectionId, packageQuote) => {
-    const newSelectedPackages = {
-      ...selectedPackages,
-      [serviceSelectionId]: packageQuote.id
-    };
-    
-    setSelectedPackages(newSelectedPackages);
-
-    // Update parent component with selected packages
-    const selectedPackagesArray = Object.entries(newSelectedPackages).map(([serviceId, packageId]) => {
-      // Find the service selection and package details
-      const serviceSelection = quoteData?.service_selections.find(s => s.id === serviceId);
-      const packageDetails = serviceSelection?.package_quotes.find(p => p.id === packageId);
-      
-      if (packageDetails && serviceSelection) {
-        return {
-          service_selection_id: serviceId,
-          package_id: packageDetails.package,
-          package_name: packageDetails.package_name,
-          total_price: packageDetails.total_price
-        };
-      }
-      return null;
-    }).filter(Boolean);
-
-    onUpdate({
-      selectedPackages: selectedPackagesArray
-    });
+  const toggleServiceExpansion = (serviceId) => {
+    setExpandedServices((prev) => ({
+      ...prev,
+      [serviceId]: !prev[serviceId],
+    }));
   };
 
-  const handleAddCustomProduct = async() => {
-    const product = {
-      purchase: data.submission_id,
-      product_name: newProduct.product_name,
-      description: newProduct.description,
-      price: parseFloat(newProduct.price || 0),
+  const handlePackageSelect = (serviceSelectionId, packageQuote) => {
+    const newSelected = {
+      ...selectedPackages,
+      [serviceSelectionId]: packageQuote.id,
     };
-    try {
-      const response = await createCustomProduct(product).unwrap();
 
-      // Push the newly created product to local state
-      const updated = [...customProducts, response];
-      setCustomProducts(updated);
+    setSelectedPackages(newSelected);
 
-      onUpdate({
-        selectedPackages,
-        customProducts: updated,
-      });
+    const selectedPackagesArray = Object.entries(newSelected)
+      .map(([serviceId, packageId]) => {
+        const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
+        const packageDetails = serviceSelection?.package_quotes.find((p) => p.id === packageId);
+        if (packageDetails && serviceSelection) {
+          return {
+            service_selection_id: serviceId,
+            package_id: packageDetails.package,
+            package_name: packageDetails.package_name,
+            total_price: packageDetails.total_price,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
 
-      setDialogOpen(false);
-      setNewProduct({ product_name: '', description: '', price: '' });
-    } catch (err) {
-      console.error("Failed to create custom product", err);
-      // Optional: show a toast/snackbar error message
-    }
+    onUpdate({
+      selectedPackages: selectedPackagesArray,
+    });
   };
 
   const handleAddOrUpdateCustomProduct = async () => {
@@ -218,7 +191,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#023c8f' }} />
         <Typography variant="h6" sx={{ ml: 2 }}>
           Loading quote details...
         </Typography>
@@ -228,96 +201,46 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
   if (isError || !quoteData) {
     return (
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Review & Submit
+      <Box textAlign="center" p={4}>
+        <Typography variant="h6" color="error" gutterBottom>
+          Failed to load quote details
         </Typography>
-        <Typography color="error">
-          Failed to load quote details. Please try again.
-        </Typography>
+        <Typography color="text.secondary">Please refresh and try again.</Typography>
       </Box>
     );
   }
 
   const formatPrice = (price) => {
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2);
+    const numPrice = typeof price === "string" ? parseFloat(price) : price;
+    return isNaN(numPrice) ? "0.00" : numPrice.toFixed(2);
   };
 
   const renderQuestionResponse = (response) => {
     switch (response.question_type) {
-      case 'yes_no':
-        return response.yes_no_answer ? 'Yes' : 'No';
-      case 'conditional':
-        return response.yes_no_answer ? 'Yes' : 'No';
-      case 'multiple_yes_no':
-        return response.sub_question_responses
-          .filter(sub => sub.answer)
-          .map(sub => sub.sub_question_text)
-          .join(', ') || 'None selected';
-      case 'quantity':
-        return response.option_responses
-          .map(opt => `${opt.option_text}: ${opt.quantity}`)
-          .join(', ');
-      case 'describe':
-        return response.option_responses
-          .map(opt => opt.option_text)
-          .join(', ');
+      case "yes_no":
+      case "conditional":
+        return response.yes_no_answer ? "Yes" : "No";
+      case "multiple_yes_no":
+        return (
+          response.sub_question_responses
+            .filter((sub) => sub.answer)
+            .map((sub) => sub.sub_question_text)
+            .join(", ") || "None selected"
+        );
+      case "quantity":
+        return response.option_responses.map((opt) => `${opt.option_text}: ${opt.quantity}`).join(", ");
+      case "describe":
+        return response.option_responses.map((opt) => opt.option_text).join(", ");
       default:
-        return 'N/A';
+        return "N/A";
     }
   };
 
-  const renderPackageFeatures = (packageQuote) => {
-    return (
-      <Box>
-        {packageQuote.included_features_details.length > 0 && (
-          <Box mb={2}>
-            <Typography variant="subtitle2" color="success.main" gutterBottom>
-              ✓ Included Features:
-            </Typography>
-            <List dense>
-              {packageQuote.included_features_details.map((feature) => (
-                <ListItem key={feature.id} sx={{ py: 0.5, pl: 2 }}>
-                  <Check color="success" fontSize="small" sx={{ mr: 1 }} />
-                  <ListItemText 
-                    primary={feature.name}
-                    secondary={feature.description}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-        )}
-        
-        {packageQuote.excluded_features_details.length > 0 && (
-          <Box>
-            <Typography variant="subtitle2" color="error.main" gutterBottom>
-              ✗ Excluded Features:
-            </Typography>
-            <List dense>
-              {packageQuote.excluded_features_details.map((feature) => (
-                <ListItem key={feature.id} sx={{ py: 0.5, pl: 2 }}>
-                  <Close color="error" fontSize="small" sx={{ mr: 1 }} />
-                  <ListItemText 
-                    primary={feature.name}
-                    secondary={feature.description}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-        )}
-      </Box>
-    );
-  };
-
-  // Calculate total price of selected packages
   const calculateTotalSelectedPrice = () => {
     let total = 0;
     Object.entries(selectedPackages).forEach(([serviceId, packageId]) => {
-      const serviceSelection = quoteData?.service_selections.find(s => s.id === serviceId);
-      const packageDetails = serviceSelection?.package_quotes.find(p => p.id === packageId);
+      const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
+      const packageDetails = serviceSelection?.package_quotes.find((p) => p.id === packageId);
       if (packageDetails) {
         total += parseFloat(packageDetails.total_price || 0);
       }
@@ -325,406 +248,582 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     return total;
   };
 
+  const calculateCustomProductsTotal = () => {
+    return customProducts.reduce((total, product) => {
+      return total + parseFloat(product.price || 0);
+    }, 0);
+  };
+
   const totalSelectedPrice = calculateTotalSelectedPrice();
-  const FinalTotal = formatPrice(totalSelectedPrice + parseFloat(quoteData?.custom_service_total))
-  const totalWithTax = (FinalTotal * 1.0825).toFixed(2);
+  const customProductsTotal = calculateCustomProductsTotal();
+  const surchargeAmount = quoteData.quote_surcharge_applicable
+    ? parseFloat(quoteData.location_details?.trip_surcharge || 0)
+    : 0;
+  const finalTotal = formatPrice(totalSelectedPrice + customProductsTotal + surchargeAmount);
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>
-        Quote Summary
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Quote ID: {quoteData.id} | Status: {quoteData.status.replace('_', ' ').toUpperCase()}
-      </Typography>
+      <Container maxWidth="lg">
+        {/* Quote Header */}
+        <Box mb={4}>
+          <Typography variant="h4" gutterBottom fontWeight={300} sx={{ color: '#023c8f', textAlign: 'center' }}>
+            Quote Summary
+          </Typography>
+          <Box display="flex" gap={2} flexWrap="wrap" alignItems="center" justifyContent="center">
+            <Typography variant="body1" color="text.secondary">
+              Quote #{quoteData.id}
+            </Typography>
+            <Chip
+              label={quoteData.status.replace("_", " ").toUpperCase()}
+              size="small"
+              sx={{ bgcolor: "#d9edf7", color: "#023c8f", fontWeight: 600 }}
+            />
+            <Typography variant="body2" color="text.secondary">
+              {new Date(quoteData.created_at).toLocaleDateString()}
+            </Typography>
+          </Box>
+        </Box>
 
-      <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '2fr 1fr' }} gap={3}>
-        {/* Left Column - Details */}
-        <Box>
-          {/* Customer Information */}
-          <Card sx={{ mb: 3, borderRadius: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <Person color="primary" />
-                <Typography variant="h6">Customer Information</Typography>
-              </Box>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">Name</Typography>
-                  <Typography variant="body2">{quoteData.contact?.first_name}</Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">Email</Typography>
-                  <Typography variant="body2">{quoteData.contact?.email}</Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">Phone</Typography>
-                  <Typography variant="body2">{quoteData.contact?.phone}</Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">Address</Typography>
-                  <Typography variant="body2">{quoteData.address?.name} — {quoteData.address?.street_address}, {quoteData.address?.city}, {quoteData.address?.state}, {quoteData.address?.postal_code}</Typography>
-                </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2">House Size</Typography>
-                  <Typography variant="body2">{quoteData.house_sqft} sq ft</Typography>
-                </Grid>
-                {/* <Grid item xs={6}>
-                  <Typography variant="subtitle2">Location</Typography>
-                  <Typography variant="body2">{quoteData.location_details.name}</Typography>
-                </Grid> */}
+        {/* Customer Info */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+              Customer Information
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Name
+                </Typography>
+                <Typography variant="body1">{quoteData.contact?.first_name}</Typography>
               </Grid>
-            </CardContent>
-          </Card>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Email
+                </Typography>
+                <Typography variant="body1">{quoteData.contact?.email}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Phone
+                </Typography>
+                <Typography variant="body1">{quoteData.contact?.phone}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  House sq ft
+                </Typography>
+                <Typography variant="body1">{quoteData.house_sqft} sq ft</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary">
+                  Address
+                </Typography>
+                <Typography variant="body1">
+                  {quoteData.address?.street_address}, {quoteData.address?.city}, {quoteData.address?.state}, {quoteData.address?.postal_code}
+                </Typography>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
 
-          {/* Service Selections */}
-          {quoteData.service_selections.map((selection, index) => (
-            <Card key={selection.id} sx={{ mb: 3, borderRadius: 2 }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" gap={1} mb={2}>
-                  <BusinessCenter color="primary" />
-                  <Typography variant="h6">
+        {/* Service Selections */}
+        {quoteData.service_selections.map((selection) => (
+          <Card key={selection.id} sx={{ mb: 1.5 }}>
+            {/* Service Header */}
+            <Box
+              sx={{
+                px: 3,
+                py: 0.5,
+                backgroundColor: '#023c8f',
+                color: 'white',
+                cursor: "pointer",
+                "&:hover": { bgcolor: "#012a6b" },
+              }}
+              onClick={() => toggleServiceExpansion(selection.id)}
+            >
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: 'white' }}>
                     {selection.service_details.name}
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="text.secondary" mb={2}>
+                <IconButton sx={{ color: 'white' }}>
+                  {expandedServices[selection.id] ? <ExpandLess /> : <ExpandMore />}
+                </IconButton>
+              </Box>
+            </Box>
+
+            {/* Collapsible Content */}
+            <Collapse in={expandedServices[selection.id]} timeout="auto" unmountOnExit>
+              <Box sx={{ px: 3, py: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   {selection.service_details.description}
                 </Typography>
-
-                {/* Package Options */}
-                <Typography variant="subtitle1" gutterBottom>
-                  Select Package ({selection.service_details.packages_count} options):
-                </Typography>
                 
-                <FormControl component="fieldset" sx={{ width: '100%', mb: 2 }}>
+                {/* Service Disclaimers */}
+                {(selection.service_details.service_settings?.general_disclaimer || 
+                  selection.service_details.service_settings?.bid_in_person_disclaimer) && (
+                  <Box sx={{ mb: 2 }}>
+                    {selection.service_details.service_settings?.general_disclaimer && (
+                      <Box 
+                        sx={{ 
+                          backgroundColor: '#d9edf7',
+                          padding: '12px 16px',
+                          borderRadius: '6px',
+                          mb: 1,
+                          border: '1px solid #023c8f'
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#023c8f',
+                            fontWeight: 500,
+                            fontSize: '13px'
+                          }}
+                        >
+                          <strong>General:</strong> {selection.service_details.service_settings.general_disclaimer}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {selection.service_details.service_settings?.bid_in_person_disclaimer && (
+                      <Box 
+                        sx={{ 
+                          backgroundColor: '#d9edf7',
+                          padding: '12px 16px',
+                          borderRadius: '6px',
+                          mb: 1,
+                          border: '1px solid #023c8f'
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#023c8f',
+                            fontWeight: 500,
+                            fontSize: '13px'
+                          }}
+                        >
+                          <strong>Bid in Person:</strong> {selection.service_details.service_settings.bid_in_person_disclaimer}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
+
+                {/* Package Selection */}
+                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+                  Select Package
+                </Typography>
+                <FormControl component="fieldset" fullWidth>
                   <RadioGroup
-                    value={selectedPackages[selection.id] || ''}
+                    value={selectedPackages[selection.id] || ""}
                     onChange={(e) => {
-                      const packageQuote = selection.package_quotes.find(p => p.id === e.target.value);
+                      const packageQuote = selection.package_quotes.find((p) => p.id === e.target.value);
                       if (packageQuote) {
                         handlePackageSelect(selection.id, packageQuote);
                       }
                     }}
                   >
-                    {selection.package_quotes.map((packageQuote) => (
-                      <Box key={packageQuote.id} sx={{ mb: 2 }}>
-                        <FormControlLabel
-                          value={packageQuote.id}
-                          control={<Radio />}
-                          label={
-                            <Box display="flex" justifyContent="space-between" alignItems="center" width="100%" sx={{ minWidth: 400 }}>
-                              <Box>
-                                <Typography variant="subtitle2">
+                    <Grid container spacing={3}>
+                      {selection.package_quotes.map((packageQuote) => (
+                        <Grid item xs={12} md={6} key={packageQuote.id}>
+                          <Card
+                            variant="outlined"
+                            sx={{
+                              cursor: "pointer",
+                              border:
+                                selectedPackages[selection.id] === packageQuote.id
+                                  ? "2px solid #42bd3f"
+                                  : "1px solid #e0e0e0",
+                              bgcolor: selectedPackages[selection.id] === packageQuote.id ? "#f8fff8" : "white",
+                              "&:hover": { borderColor: "#42bd3f" },
+                              borderRadius: 3,
+                              minHeight: 220,
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                            }}
+                            onClick={() => handlePackageSelect(selection.id, packageQuote)}
+                          >
+                            <CardContent sx={{ p: 4 }}>
+                              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                                <Typography variant="h6" fontWeight={700}>
                                   {packageQuote.package_name}
                                 </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  Base: ${formatPrice(packageQuote.base_price)} | Adjustments: ${formatPrice(packageQuote.question_adjustments)}
-                                </Typography>
+                                <FormControlLabel
+                                  value={packageQuote.id}
+                                  control={
+                                    <Radio
+                                      sx={{
+                                        color: "#42bd3f",
+                                        "&.Mui-checked": { color: "#42bd3f" },
+                                      }}
+                                    />
+                                  }
+                                  label=""
+                                  sx={{ m: 0 }}
+                                />
                               </Box>
-                              <Typography variant="h6" color="primary">
+
+                              <Typography variant="h4" sx={{ color: "#42bd3f", fontWeight: 700, mb: 2 }}>
                                 ${formatPrice(packageQuote.total_price)}
                               </Typography>
-                            </Box>
-                          }
-                          sx={{ 
-                            margin: 0,
-                            width: '100%',
-                            '& .MuiFormControlLabel-label': { width: '100%' }
-                          }}
-                        />
-                        
-                        {selectedPackages[selection.id] === packageQuote.id && (
-                          <Accordion sx={{ mt: 1, ml: 4 }}>
-                            <AccordionSummary expandIcon={<ExpandMore />}>
-                              <Typography variant="body2">View Package Details</Typography>
-                            </AccordionSummary>
-                            <AccordionDetails>
+
+                              {/* Features List */}
                               <Box>
-                                <Grid container spacing={2} mb={2}>
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2">Base Price: ${formatPrice(packageQuote.base_price)}</Typography>
-                                  </Grid>
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2">Sq Ft Price: ${formatPrice(packageQuote.sqft_price)}</Typography>
-                                  </Grid>
-                                  <Grid item xs={6}>
-                                    <Typography variant="body2">Question Adjustments: ${formatPrice(packageQuote.question_adjustments)}</Typography>
-                                  </Grid>
-                                  {/* <Grid item xs={6}>
-                                    <Typography variant="body2">Surcharge: ${formatPrice(packageQuote.surcharge_amount)}</Typography>
-                                  </Grid> */}
-                                </Grid>
-                                
-                                {renderPackageFeatures(packageQuote)}
+                                {[
+                                  ...(packageQuote.included_features_details || []).map((f) => ({
+                                    ...f,
+                                    included: true,
+                                  })),
+                                  ...(packageQuote.excluded_features_details || []).map((f) => ({
+                                    ...f,
+                                    included: false,
+                                  })),
+                                ].map((feature) => (
+                                  <Box key={feature.id} display="flex" alignItems="center" mb={0.8}>
+                                    {feature.included ? (
+                                      <Check sx={{ fontSize: 18, color: "#42bd3f", mr: 1 }} />
+                                    ) : (
+                                      <Close sx={{ fontSize: 18, color: "#9e9e9e", mr: 1 }} />
+                                    )}
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        color: feature.included ? "text.primary" : "text.disabled",
+                                        fontWeight: feature.included ? 500 : 400,
+                                      }}
+                                    >
+                                      {feature.name}
+                                    </Typography>
+                                  </Box>
+                                ))}
                               </Box>
-                            </AccordionDetails>
-                          </Accordion>
-                        )}
-                      </Box>
-                    ))}
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
                   </RadioGroup>
                 </FormControl>
 
                 {/* Question Responses */}
-                {selection.question_responses.length > 0 && (
-                  <Box mt={3}>
-                    <Box display="flex" alignItems="center" gap={1} mb={2}>
-                      <QuestionAnswer color="primary" />
-                      <Typography variant="h6">Question Responses</Typography>
-                    </Box>
-                    <List dense>
+                {selection.question_responses?.length > 0 && (
+                  <Box mt={4}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#023c8f' }} gutterBottom>
+                      Your Responses
+                    </Typography>
+                    <Grid container spacing={2}>
                       {selection.question_responses.map((response) => (
-                        <ListItem key={response.id}>
-                          <ListItemText 
-                            primary={response.question_text}
-                            secondary={
-                              <Box>
-                                <Typography variant="body2" component="span">
-                                  {renderQuestionResponse(response)}
-                                </Typography>
-                                {/* {parseFloat(response.price_adjustment) !== 0 && (
-                                  <Chip 
-                                    label={`${parseFloat(response.price_adjustment) > 0 ? '+' : ''}${formatPrice(response.price_adjustment)}`}
-                                    size="small"
-                                    color={parseFloat(response.price_adjustment) > 0 ? 'error' : 'success'}
-                                    sx={{ ml: 1 }}
-                                  />
-                                )} */}
-                              </Box>
-                            }
-                          />
-                        </ListItem>
+                        <Grid item xs={12} sm={6} key={response.id}>
+                          <Box p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, border: "1px solid #023c8f" }}>
+                            <Typography variant="body2" fontWeight={600} gutterBottom sx={{ color: '#023c8f' }}>
+                              {response.question_text}
+                            </Typography>
+                            <Typography variant="body2" color="text.primary">
+                              {renderQuestionResponse(response)}
+                            </Typography>
+                          </Box>
+                        </Grid>
                       ))}
-                    </List>
+                    </Grid>
                   </Box>
                 )}
-                {/* Disclaimers */}
-                {(selection.service_details.service_settings?.general_disclaimer ||
-                  selection.service_details.service_settings?.bid_in_person_disclaimer) && (
-                  <Box mt={3} p={2} sx={{ backgroundColor: 'grey.100', borderRadius: 1 }}>
-                    <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <Info color="#bdbdbd" />
-                      <Typography variant="h6" className=''>Disclaimers</Typography>
-                    </Box>
-                    {selection.service_details.service_settings.general_disclaimer && (
-                      <Typography variant="body2" color="text.secondary" mb={1}>
-                        <strong>General:</strong> {selection.service_details.service_settings.general_disclaimer}
-                      </Typography>
-                    )}
-                    {selection.service_details.service_settings.bid_in_person_disclaimer && (
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Bid In Person:</strong> {selection.service_details.service_settings.bid_in_person_disclaimer}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
+              </Box>
+            </Collapse>
+          </Card>
+        ))}
 
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
-
-        {/* Right Column - Pricing Summary */}
-        <Box>
-          <Paper sx={{ p: 3, position: 'sticky', top: 20, borderRadius: 2 }}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Receipt color="primary" />
-              <Typography variant="h6">Pricing Summary</Typography>
-            </Box>
-
-            <Box mb={3}>
-              {/* <Box display="flex" justifyContent="space-between" mb={1}>
-                <Typography>Selected Packages Total</Typography>
-                <Typography color="primary" variant="h6">
-                  ${formatPrice(totalSelectedPrice)}
-                </Typography>
-              </Box> */}
-
-              {Object.keys(selectedPackages).length > 0 && (
-                <Box sx={{ backgroundColor: 'grey.50', p: 2, borderRadius: 1, mb: 2 }}>
-                  <Typography variant="subtitle2" mb={1}>Selected Packages:</Typography>
-                  {Object.entries(selectedPackages).map(([serviceId, packageId]) => {
-                    const serviceSelection = quoteData?.service_selections.find(s => s.id === serviceId);
-                    const packageDetails = serviceSelection?.package_quotes.find(p => p.id === packageId);
-                    if (packageDetails && serviceSelection) {
-                      return (
-                        <Box key={serviceId} display="flex" justifyContent="space-between" mb={0.5}>
-                          <Typography variant="body2">
-                            {serviceSelection.service_details.name} - {packageDetails.package_name}
+        {/* Custom Products Section */}
+        {customProducts.length > 0 && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+                Custom Products
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Additional custom services added to your quote
+              </Typography>
+              <Grid container spacing={2}>
+                {customProducts.map((product) => (
+                  <Grid item xs={12} sm={6} md={4} key={product.id}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        border: "1px solid #e0e0e0",
+                        bgcolor: "white",
+                        borderRadius: 2,
+                        height: "100%",
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} mb={2}>
+                          <Typography variant="h6" fontWeight={600}>
+                            {product.product_name}
                           </Typography>
-                          <Typography variant="body2">
-                            ${formatPrice(packageDetails.total_price)}
-                          </Typography>
+                          <Box>
+                            <IconButton size="small" onClick={() => openEditDialog(product)}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => handleDeleteCustomProduct(product.id)}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Box>
                         </Box>
-                      );
-                    }
-                    return null;
-                  })}
-                </Box>
-              )}
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          {product.description}
+                        </Typography>
+                        <Typography variant="h6" sx={{ color: "#42bd3f", fontWeight: 700 }}>
+                          ${formatPrice(product.price)}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
 
-              {/* Custom Products */}
-              {customProducts.length > 0 && (
-                <Box sx={{ backgroundColor: 'grey.50', p: 2, borderRadius: 1, mb: 2 }}>
-                  <Typography variant="subtitle2" mb={1}>
-                    Custom Products:
-                  </Typography>
-                  {customProducts.map((prod) => (
-                    <Box key={prod.id} display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                      <Box>
-                        <Typography variant="body2">{prod.product_name} - {prod.description}</Typography>
-                        <Typography variant="caption" color="text.secondary">${formatPrice(prod.price)}</Typography>
-                      </Box>
-                      <Box>
-                        <IconButton size="small" onClick={() => openEditDialog(prod)}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteCustomProduct(prod.id)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-
-              <Box sx={{ backgroundColor: 'grey.50', p: 2, borderRadius: 1, mb: 2 }}>
-                  <Box display="flex" justifyContent="space-between" mb={0.5}>
-                    <Typography variant="body2">
-                      Trip Surcharge:
-                    </Typography>
-                    <Typography variant="body2">
-                      {quoteData.quote_surcharge_applicable ? `${formatPrice(quoteData.location_details.trip_surcharge)}` : 0}
-                    </Typography>
-                  </Box>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box display="flex" justifyContent="space-between">
-                <Typography variant="h6">Final Total</Typography>
-                <Typography variant="h6" color="primary">
-                  ${totalWithTax}
-                  <br />
-                  <span className='text-lg'>
-                    Plus Tax
-                  </span>
-                </Typography>
-              </Box>
-
-              {quoteData.location_details && (
-                <Box mt={2}>
-                  {/* <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                    <LocationOn color="action" />
-                    <Typography variant="body2">
-                      Service Location: {quoteData.location_details.name}
-                    </Typography>
-                  </Box> */}
-                  {/* <Typography variant="body2" color="text.secondary">
-                    Trip Surcharge: {quoteData.quote_surcharge_applicable ? `${formatPrice(quoteData.location_details.trip_surcharge)}` : 0}
-                  </Typography> */}
-                  <Typography variant="body2" color="text.secondary">
-                    Address: {quoteData.customer_address}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-
-            {/* Add Custom Product Button */}
+        {/* Add More Services Button */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 3, textAlign: 'center' }}>
             <Button
               variant="outlined"
               startIcon={<Add />}
-              fullWidth
-              sx={{ mb: 2 }}
-              onClick={() => {
-                setActiveStep(1)
+              sx={{
+                color: '#023c8f',
+                borderColor: '#023c8f',
+                '&:hover': {
+                  backgroundColor: '#f5f5f5',
+                  borderColor: '#023c8f',
+                },
+                fontWeight: 600,
+                minWidth: "200px",
               }}
+              onClick={() => setActiveStep(1)}
             >
               Add More Services
             </Button>
+          </CardContent>
+        </Card>
 
-            {/* Additional Notes */}
-          <Box mt={3}>
-            <Typography variant="subtitle1" gutterBottom>
+        {/* Additional Notes */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
               Additional Notes
             </Typography>
             <TextField
-              placeholder="Add any extra notes or requests..."
+              placeholder="Any special requests or notes..."
               multiline
               rows={3}
               fullWidth
               value={additionalNotes}
               onChange={(e) => {
                 setAdditionalNotes(e.target.value);
-                onUpdate({
-                  additionalNotes: e.target.value,
-                  termsAccepted
-                });
+                onUpdate({ additionalNotes: e.target.value, termsAccepted });
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: '#023c8f',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#023c8f',
+                  },
+                },
               }}
             />
-          </Box>
+          </CardContent>
+        </Card>
 
-          {/* Terms & Conditions */}
-          <Box mt={2}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={termsAccepted}
-                  onChange={(e) => {
-                    setTermsAccepted(e.target.checked);
-                    onUpdate({
-                      additionalNotes,
-                      termsAccepted: e.target.checked
-                    });
-                  }}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  I have read and agree to the{' '}
-                    Terms & Conditions
-                  {/* <a href="/terms" target="_blank" rel="noopener noreferrer">
-                  </a> */}
-                </Typography>
-              }
-            />
-          </Box>
+        {/* Order Summary */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+              Order Summary
+            </Typography>
 
-          {/* Optional: Disable button until terms accepted */}
-          {/* Example:
-          <Button
-            variant="contained"
-            fullWidth
-            disabled={!termsAccepted}
-            sx={{ mt: 2 }}
-          >
-            Confirm & Book
-          </Button> */}
-
-            <Box mb={2}>
-              <Typography variant="body2" color="text.secondary">
-                Created: {new Date(quoteData.created_at).toLocaleDateString()}
-              </Typography>
-              {/* <Typography variant="body2" color="text.secondary">
-                Expires: {new Date(quoteData.expires_at).toLocaleDateString()}
-              </Typography> */}
-            </Box>
-
-            {Object.keys(selectedPackages).length === 0 && (
-              <Box sx={{ backgroundColor: 'warning.light', p: 2, borderRadius: 1, mb: 2 }}>
-                <Typography variant="body2" color="warning.dark">
-                  Please select at least one package to proceed with booking.
+            {Object.keys(selectedPackages).length > 0 ? (
+              <Box mb={2}>
+                {Object.entries(selectedPackages).map(([serviceId, packageId]) => {
+                  const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
+                  const pkg = serviceSelection?.package_quotes.find((p) => p.id === packageId);
+                  if (pkg && serviceSelection) {
+                    return (
+                      <Box key={serviceId} mb={1}>
+                        <Box display="flex" justifyContent="space-between">
+                          <Box>
+                            <Typography variant="body1" fontWeight={500}>
+                              {pkg.package_name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {serviceSelection.service_details.name}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1" fontWeight={600}>
+                            ${formatPrice(pkg.total_price)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  }
+                  return null;
+                })}
+              </Box>
+            ) : (
+              <Box mb={2} p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, textAlign: "center" }}>
+                <Typography variant="body2" sx={{ color: '#023c8f' }}>
+                  Please select a package above
                 </Typography>
               </Box>
             )}
 
-            <Typography variant="body2" color="text.secondary" align="center">
-              Final price will be confirmed after service completion
+            {/* Custom Products in Summary */}
+            {customProducts.length > 0 && (
+              <Box mb={2}>
+                <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#023c8f', mb: 1 }}>
+                  Custom Products
+                </Typography>
+                {customProducts.map((product) => (
+                  <Box key={product.id} mb={1}>
+                    <Box display="flex" justifyContent="space-between">
+                      <Box>
+                        <Typography variant="body1" fontWeight={500}>
+                          {product.product_name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {product.description}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body1" fontWeight={600}>
+                        ${formatPrice(product.price)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+
+            {surchargeAmount > 0 && (
+              <Box display="flex" justifyContent="space-between" mb={1}>
+                <Typography variant="body2">Trip Surcharge</Typography>
+                <Typography variant="body2">${formatPrice(surchargeAmount)}</Typography>
+              </Box>
+            )}
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box display="flex" justifyContent="space-between" mb={2}>
+              <Typography variant="h6" fontWeight={700}>
+                Total
+              </Typography>
+              <Typography variant="h6" fontWeight={700} color="success.main">
+                ${finalTotal}
+              </Typography>
+            </Box>
+
+            {/* Signature Section */}
+            <Box sx={{ mb: 3, maxWidth: { xs: '100%', sm: '400px' } }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: '#023c8f', fontWeight: 600 }}>
+                Signature
+              </Typography>
+              <Box
+                sx={{
+                  border: '1px solid #e0e0e0',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  width: '100%',
+                  height: { xs: 160, sm: 120 },
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'crosshair',
+                  '&:hover': {
+                    borderColor: '#023c8f',
+                  },
+                }}
+              >
+                <Box sx={{ width: "100%", height: "100%" }}>
+                  <SignatureCanvas
+                    ref={sigCanvasRef}
+                    penColor="black"
+                    canvasProps={{
+                      className: "w-full h-full",
+                    }}
+                    onEnd={() => {handleSignatureEnd(sigCanvasRef)}}
+                  />
+                </Box>
+              </Box>
+              <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: '#023c8f',
+                    borderColor: '#023c8f',
+                    '&:hover': {
+                      backgroundColor: '#f5f5f5',
+                      borderColor: '#023c8f',
+                    },
+                  }}
+                  onClick={() => {
+                    sigCanvasRef.current.clear();
+                    setSignature('');
+                  }}
+                >
+                  Clear
+                </Button>
+              </Box>
+            </Box>
+
+            <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={2} alignItems={{ sm: "center" }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      setTermsAccepted(e.target.checked);
+                      onUpdate({ additionalNotes, termsAccepted: e.target.checked });
+                    }}
+                    sx={{ 
+                      color: '#e1e1e1', 
+                      '&.Mui-checked': { color: '#023c8f' } 
+                    }}
+                  />
+                }
+                label={<Typography variant="body2">I agree to the Terms & Conditions</Typography>}
+                sx={{ flex: 1 }}
+              />
+
+              <Button
+                variant="contained"
+                size="large"
+                disabled={Object.keys(selectedPackages).length === 0 || !termsAccepted || !isStepComplete(3)}
+                sx={{
+                  bgcolor: "#42bd3f",
+                  "&:hover": { bgcolor: "#369932" },
+                  "&:disabled": { bgcolor: "#e0e0e0" },
+                  fontWeight: 600,
+                  minWidth: { xs: "100%", sm: "200px" },
+                }}
+                onClick={handleNext}
+              >
+                Accept Quote
+              </Button>
+            </Box>
+
+            <Typography variant="caption" color="text.secondary" display="block" textAlign="center" mt={2}>
+              Final price confirmed after service completion
             </Typography>
-          </Paper>
-        </Box>
-      </Box>
+          </CardContent>
+        </Card>
+      </Container>
 
       {/* Custom Product Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
@@ -754,7 +853,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {setDialogOpen(false)}}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleAddOrUpdateCustomProduct}>
             {editMode ? 'Update' : 'Add'}
           </Button>
