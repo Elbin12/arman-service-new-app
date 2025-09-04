@@ -4,8 +4,8 @@ import { Button } from "../../../ui/button";
 import { Input } from "../../../ui/input";
 import { Label } from "../../../ui/label";
 import { Alert, AlertDescription } from "../../../ui/alert";
-import { Check, X, Plus, Trash2 } from 'lucide-react';
-import { useCreatePackageMutation, useDeletePackageMutation } from '../../../../store/api/packagesApi';
+import { Check, X, Plus, Trash2, Edit3, Save } from 'lucide-react';
+import { useCreatePackageMutation, useDeletePackageMutation, useUpdatePackageMutation } from '../../../../store/api/packagesApi';
 import { useCreateFeatureMutation, useDeleteFeatureMutation, useUpdateFeatureStatusMutation } from '../../../../store/api/featuresApi';
 import { useCreatePackageFeatureMutation, useUpdatePackageFeatureMutation } from '../../../../store/api/packageFeaturesApi';
 import { servicesApi, useGetServiceByIdQuery } from '../../../../store/api/servicesApi';
@@ -65,6 +65,10 @@ const PackageManagementForm = ({
   const [featureToDelete, setFeatureToDelete] = useState(null);
   const [featureDeleteConfirmOpen, setFeatureDeleteConfirmOpen] = useState(false);
 
+  // Edit state for packages
+  const [editingPackage, setEditingPackage] = useState(null);
+  const [editingField, setEditingField] = useState(null); // 'name' or 'base_price'
+  const [editValue, setEditValue] = useState('');
 
   const dispatch = useDispatch();
 
@@ -73,6 +77,7 @@ const PackageManagementForm = ({
   const [deleteFeature] = useDeleteFeatureMutation();
   const [updateFeatureStatus] = useUpdatePackageFeatureMutation();
   const [deletePackage] = useDeletePackageMutation();
+  const [updatePackage] = useUpdatePackageMutation();
 
   const validatePackage = () => {
     const newErrors = {};
@@ -80,13 +85,78 @@ const PackageManagementForm = ({
     if (!newPackage.name || newPackage.name.trim().length < 3) {
       newErrors.name = 'Package name must be at least 3 characters';
     }
-    
-    if (!newPackage.base_price || isNaN(newPackage.base_price) || parseFloat(newPackage.base_price) <= 0) {
+
+    if (!newPackage.base_price || isNaN(newPackage.base_price) || parseFloat(newPackage.base_price) < 0) {
       newErrors.base_price = 'Base price must be a valid positive number';
     }
     
+    // if (!newPackage.base_price || isNaN(newPackage.base_price) || parseFloat(newPackage.base_price) <= 0) {
+    //   newErrors.base_price = 'Base price must be a valid positive number';
+    // }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleStartEdit = (packageId, field, currentValue) => {
+    setEditingPackage(packageId);
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPackage(null);
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editValue.trim()) return;
+
+    // Validate based on field type
+    if (editingField === 'name' && editValue.trim().length < 3) {
+      setErrors({ edit: 'Package name must be at least 3 characters' });
+      return;
+    }
+
+    if (editingField === 'base_price' && (isNaN(editValue) || parseFloat(editValue) < 0)) {
+      setErrors({ edit: 'Base price must be a valid non-negative number' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const updateData = {
+        [editingField]: editingField === 'base_price' ? parseFloat(editValue) : editValue.trim()
+      };
+
+      const updatedPackage = await updatePackage({
+        id: editingPackage,
+        ...updateData
+      }).unwrap();
+
+      // Update local state
+      const updatedPackages = packages.map(pkg =>
+        pkg.id === editingPackage ? { ...pkg, ...updateData } : pkg
+      );
+      
+      setPackages(updatedPackages);
+      onUpdate({ packages: updatedPackages });
+      
+      // Reset edit state
+      setEditingPackage(null);
+      setEditingField(null);
+      setEditValue('');
+      setErrors({});
+      
+    } catch (error) {
+      console.error('Failed to update package:', error);
+      setErrors({ 
+        edit: error?.data?.message || error?.data?.detail || 'Failed to update package. Please try again.' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddFeatureInline = async () => {
@@ -242,6 +312,12 @@ const PackageManagementForm = ({
         </Alert>
       )}
 
+      {errors.edit && (
+        <Alert>
+          <AlertDescription>{errors.edit}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex gap-2">
         <Button 
           disabled={!data.id}
@@ -276,10 +352,101 @@ const PackageManagementForm = ({
                       <th key={pkg.id} className="text-center p-4 min-w-[120px]">
                         <div className="space-y-1">
                           <div className="text-xs text-muted-foreground">Package {index + 1}</div>
-                          <div className="font-semibold">{pkg.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Base Price ${pkg.base_price}
+                          
+                          {/* Package Name with Edit */}
+                          <div className="flex items-center justify-center gap-1">
+                            {editingPackage === pkg.id && editingField === 'name' ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit()}
+                                  className="text-sm font-semibold bg-transparent border-0 border-b border-gray-300 focus:border-blue-500 focus:outline-none text-center min-w-0 w-20"
+                                  autoFocus
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleSaveEdit}
+                                  disabled={isLoading}
+                                  className="h-5 w-5 p-0 text-green-600 hover:text-green-800"
+                                >
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleCancelEdit}
+                                  className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <span className="font-semibold">{pkg.name}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStartEdit(pkg.id, 'name', pkg.name)}
+                                  className="h-4 w-4 p-0 text-gray-400 hover:text-gray-600"
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
+                          
+                          {/* Base Price with Edit */}
+                          <div className="flex items-center justify-center gap-1">
+                            {editingPackage === pkg.id && editingField === 'base_price' ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm">$</span>
+                                <input
+                                  type="number"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit()}
+                                  className="text-sm text-muted-foreground bg-transparent border-0 border-b border-gray-300 focus:border-blue-500 focus:outline-none text-center min-w-0 w-16"
+                                  autoFocus
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleSaveEdit}
+                                  disabled={isLoading}
+                                  className="h-5 w-5 p-0 text-green-600 hover:text-green-800"
+                                >
+                                  <Save className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleCancelEdit}
+                                  className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">
+                                  Base Price ${pkg.base_price}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStartEdit(pkg.id, 'base_price', pkg.base_price)}
+                                  className="h-4 w-4 p-0 text-gray-400 hover:text-gray-600"
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Delete Button */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -481,7 +648,7 @@ const PackageManagementForm = ({
           </div>
           <Button 
             onClick={handleAddPackage} 
-            disabled={!newPackage.name || isLoading}
+            disabled={!newPackage.name || isLoading || !newPackage?.base_price || !newPackage?.name}
             className="w-full"
           >
             {isLoading ? 'Adding...' : 'Add Package'}

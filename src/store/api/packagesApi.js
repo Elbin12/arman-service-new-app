@@ -25,7 +25,7 @@ export const packagesApi = createApi({
     updatePackage: builder.mutation({
       query: ({ id, ...packageData }) => ({
         url: `${id}/`,
-        method: 'PUT',
+        method: 'PATCH',
         data: packageData,
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'Package', id }],
