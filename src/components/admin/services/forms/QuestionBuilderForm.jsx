@@ -159,7 +159,6 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
           order: idx + 1,
           ...(newQuestion.question_type === "quantity" && {
             allow_quantity: opt.allow_quantity || false,
-            max_quantity: opt.max_quantity || 1,
           }),
         }))
       }
@@ -196,7 +195,6 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
               order: idx + 1,
               ...(child.question_type === "quantity" && {
                 allow_quantity: opt.allow_quantity || false,
-                max_quantity: opt.max_quantity || 1,
               }),
             }))
           }
@@ -254,7 +252,6 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
     const newOption = {
       option_text: optionText.trim(),
       allow_quantity: newQuestion.question_type === "quantity",
-      max_quantity: 1,
       tempId: Date.now(),
     }
 
@@ -288,7 +285,6 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
     const newOption = {
       option_text: optionText.trim(),
       allow_quantity: newQuestion.conditional_child?.question_type === "quantity",
-      max_quantity: 1,
       tempId: Date.now(),
     }
 
@@ -371,10 +367,10 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
         ? questions.find(q => q.id === parentQuestionId)?.child_questions?.find(child => child.id === questionId)
         : questions.find(q => q.id === questionId)
       
-      if (currentQuestion?.question_type === "quantity") {
-        payload.allow_quantity = true
-        payload.max_quantity = parseInt(maxQty) || 1
-      }
+      // if (currentQuestion?.question_type === "quantity") {
+      //   payload.allow_quantity = true
+      //   payload.max_quantity = parseInt(maxQty) || 1
+      // }
       
       const optionResult = await createQuestionOption(payload).unwrap()
 
@@ -639,11 +635,11 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
               ) : (
                 <>
                   <Typography variant="body2">{option.option_text || option}</Typography>
-                  {question.question_type === "quantity" && (
+                  {/* {question.question_type === "quantity" && (
                     <Typography variant="body2" color="text.secondary" sx={{ fontSize: "12px" }}>
                       (Max: {option.max_quantity || 1})
                     </Typography>
-                  )}
+                  )} */}
                   <Box sx={{ display: "flex", gap: 0.5 }}>
                     <IconButton
                       size="small"
@@ -688,25 +684,25 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                   handleAddOptionToQuestion(
                     question.id,
                     optionInputs[`child_${question.id}`] || "",
-                    optionInputs[`child_${question.id}_maxQty`] || 1,
+                    // optionInputs[`child_${question.id}_maxQty`] || 1,
                     true,
                     parentQuestionId,
                   )
                   setOptionInputs((prev) => ({ 
                     ...prev, 
                     [`child_${question.id}`]: "",
-                    [`child_${question.id}_maxQty`]: ""
+                    // [`child_${question.id}_maxQty`]: ""
                   }))
                 } else {
                   handleAddOptionToQuestion(
                     question.id, 
                     optionInputs[question.id] || "",
-                    optionInputs[`${question.id}_maxQty`] || 1
+                    // optionInputs[`${question.id}_maxQty`] || 1
                   )
                   setOptionInputs((prev) => ({ 
                     ...prev, 
                     [question.id]: "",
-                    [`${question.id}_maxQty`]: ""
+                    // [`${question.id}_maxQty`]: ""
                   }))
                 }
               }
@@ -715,7 +711,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
           />
           
           {/* Max Quantity Input for quantity type questions */}
-          {question.question_type === "quantity" && (
+          {/* {question.question_type === "quantity" && (
             <TextField
               size="small"
               type="number"
@@ -760,7 +756,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
               sx={{ width: "100px" }}
               inputProps={{ min: 1 }}
             />
-          )}
+          )} */}
           
           <Button
             onClick={() => {
@@ -768,25 +764,25 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                 handleAddOptionToQuestion(
                   question.id,
                   optionInputs[`child_${question.id}`] || "",
-                  optionInputs[`child_${question.id}_maxQty`] || 1,
+                  // optionInputs[`child_${question.id}_maxQty`] || 1,
                   true,
                   parentQuestionId,
                 )
                 setOptionInputs((prev) => ({ 
                   ...prev, 
                   [`child_${question.id}`]: "",
-                  [`child_${question.id}_maxQty`]: ""
+                  // [`child_${question.id}_maxQty`]: ""
                 }))
               } else {
                 handleAddOptionToQuestion(
                   question.id, 
                   optionInputs[question.id] || "",
-                  optionInputs[`${question.id}_maxQty`] || 1
+                  // optionInputs[`${question.id}_maxQty`] || 1
                 )
                 setOptionInputs((prev) => ({ 
                   ...prev, 
                   [question.id]: "",
-                  [`${question.id}_maxQty`]: ""
+                  // [`${question.id}_maxQty`]: ""
                 }))
               }
             }}
@@ -1016,7 +1012,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                     }
                     label="Allow Quantity"
                   /> */}
-                  <TextField
+                  {/* <TextField
                     size="small"
                     type="number"
                     label="Max Qty"
@@ -1032,7 +1028,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                       }))
                     }}
                     sx={{ width: 100 }}
-                  />
+                  /> */}
                 </>
               )}
 
@@ -1216,7 +1212,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                     }
                     label="Allow Quantity"
                   /> */}
-                  <TextField
+                  {/* <TextField
                     size="small"
                     type="number"
                     label="Max Qty"
@@ -1235,7 +1231,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                       }))
                     }}
                     sx={{ width: 100 }}
-                  />
+                  /> */}
                 </>
               )}
 

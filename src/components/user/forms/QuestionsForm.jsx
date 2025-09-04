@@ -337,7 +337,7 @@ export const QuestionsForm = ({ data, onUpdate }) => {
                     label={option.text}
                   />
                   
-                  {isSelected && option.allow_quantity && (
+                  {isSelected && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
                       <TextField
                         type="number"
@@ -349,11 +349,11 @@ export const QuestionsForm = ({ data, onUpdate }) => {
                             handleQuantityChange(serviceId, question.id, option.id, "")
                             return
                           }
-                          const newQuantity = Math.min(
-                            Math.max(1, Number(value)),
-                            option.max_quantity
-                          )
-                          handleQuantityChange(serviceId, question.id, option.id, newQuantity)
+                          // const newQuantity = Math.min(
+                          //   Math.max(1, Number(value)),
+                          //   option.max_quantity
+                          // )
+                          handleQuantityChange(serviceId, question.id, option.id, value)
                         }}
                         onBlur={(e) => {
                           // If left empty, reset to minimum (1)
@@ -363,14 +363,14 @@ export const QuestionsForm = ({ data, onUpdate }) => {
                         }}
                         inputProps={{
                           min: 1,
-                          max: option.max_quantity,
+                          // max: option.max_quantity,
                         }}
                         sx={{ width: 80 }}
                       />
 
-                      <Typography variant="caption" sx={{ color: '#666' }}>
+                      {/* <Typography variant="caption" sx={{ color: '#666' }}>
                         (Max: {option.max_quantity})
-                      </Typography>
+                      </Typography> */}
                     </Box>
                   )}
                 </Box>
