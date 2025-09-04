@@ -18,6 +18,7 @@ import { resetBookingData } from "../../store/slices/bookingSlice"
 import { Box, Typography } from "@mui/material"
 
 import SignatureCanvas from "react-signature-canvas";
+import { AdminPanelSettings } from "@mui/icons-material"
 
 
 const steps = [
@@ -566,7 +567,18 @@ export const BookingWizard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative">
+      <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1000 }}>
+        <Button
+          variant="outline"
+          className="border-blue-600 text-blue-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+          onClick={() => navigate("/admin/services/")}
+        >
+          <AdminPanelSettings className="w-6 h-6" />
+          Switch to Admin
+        </Button>
+      </Box>
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
