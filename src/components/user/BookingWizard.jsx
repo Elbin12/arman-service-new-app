@@ -568,24 +568,23 @@ export const BookingWizard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative">
-      <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1000 }}>
-        <Button
-          variant="outline"
-          className="border-blue-600 text-blue-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-          onClick={() => navigate("/admin/services/")}
-        >
-          <AdminPanelSettings className="w-6 h-6" />
-          Switch to Admin
-        </Button>
-      </Box>
-
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
+          <div className="text-center sm:text-left flex-1">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Quote</h1>
             <p className="text-gray-600">Complete the steps below to create your quote</p>
           </div>
+
+          {/* Switch to Admin button */}
+          <Button
+            variant="outline"
+            className="border-blue-600 text-blue-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg text-sm px-3 py-2"
+            onClick={() => navigate("/admin/services/")}
+          >
+            <AdminPanelSettings className="w-5 h-5 mr-1" />
+            <span className="hidden sm:inline">Switch to Admin</span>
+          </Button>
         </div>
       </div>
 
