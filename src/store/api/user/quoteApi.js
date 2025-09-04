@@ -104,10 +104,17 @@ export const quoteApi = createApi({
         data: payload,
       }),
     }),
+    deleteService: builder.mutation({
+      query: ({id, serviceId}) => ({
+        url: `submissions/${id}/remove-service/${serviceId}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['quote'],
+    }),
   }),
 });
 
 export const { useGetInitialDataQuery, useGetServiceQuestionsQuery, useCreateSubmissionMutation, useUpdateSubmissionMutation, useCreateQuestionResponsesMutation,
   useCreateServiceToSubmissionMutation,   useGetQuoteDetailsQuery,useSubmitQuoteMutation, useGetAddressesByContactQuery, useSearchContactsQuery, useCreateCustomProductMutation,
-  useUpdateCustomProductMutation, useDeleteCustomProductMutation, useGetServicesQuery, useCreateScheduleMutation
+  useUpdateCustomProductMutation, useDeleteCustomProductMutation, useGetServicesQuery, useCreateScheduleMutation, useDeleteServiceMutation
  } = quoteApi;

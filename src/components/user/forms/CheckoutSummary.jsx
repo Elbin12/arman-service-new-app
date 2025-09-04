@@ -32,9 +32,10 @@ import {
   Remove,
   Edit,
   Delete,
+  DeleteForever,
 } from '@mui/icons-material';
 import { useCalculatePriceMutation } from '../../../store/api/user/priceApi';
-import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation } from '../../../store/api/user/quoteApi';
+import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation, useDeleteServiceMutation } from '../../../store/api/user/quoteApi';
 import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 
@@ -43,6 +44,8 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   const [expandedServices, setExpandedServices] = useState({});
   const [customProducts, setCustomProducts] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteServiceDialogOpen, setDeleteServiceDialogOpen] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState(null);
   const [newProduct, setNewProduct] = useState({
     product_name: '',
     description: '',
@@ -55,6 +58,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     data: response,
     isLoading,
     isError,
+    refetch,
   } = useGetQuoteDetailsQuery(data.submission_id, {
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,
@@ -64,6 +68,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   const [createCustomProduct, { isLoading: isCreating }] = useCreateCustomProductMutation();
   const [updateCustomProduct] = useUpdateCustomProductMutation();
   const [deleteCustomProduct] = useDeleteCustomProductMutation();
+  const [deleteService, { isLoading: isDeleting }] = useDeleteServiceMutation();
 
   const sigCanvasRef = useRef(null);
 
@@ -134,6 +139,53 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     onUpdate({
       selectedPackages: selectedPackagesArray,
     });
+  };
+
+  const handleDeleteServiceClick = (service) => {
+    setServiceToDelete(service);
+    setDeleteServiceDialogOpen(true);
+  };
+
+  const handleDeleteServiceConfirm = async () => {
+    if (!serviceToDelete) return;
+
+    try {
+      await deleteService({id:data.submission_id, serviceId:serviceToDelete.service}).unwrap();
+      
+      // Remove the service from selectedPackages if it was selected
+      const newSelectedPackages = { ...selectedPackages };
+      delete newSelectedPackages[serviceToDelete.id];
+      setSelectedPackages(newSelectedPackages);
+      
+      // Update the parent component
+      const selectedPackagesArray = Object.entries(newSelectedPackages)
+        .map(([serviceId, packageId]) => {
+          const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
+          const packageDetails = serviceSelection?.package_quotes.find((p) => p.id === packageId);
+          if (packageDetails && serviceSelection) {
+            return {
+              service_selection_id: serviceId,
+              package_id: packageDetails.package,
+              package_name: packageDetails.package_name,
+              total_price: packageDetails.total_price,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      onUpdate({
+        selectedPackages: selectedPackagesArray,
+      });
+
+      // Refetch quote details to get updated data
+      refetch();
+      
+      setDeleteServiceDialogOpen(false);
+      setServiceToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete service", err);
+    }
   };
 
   const handleAddOrUpdateCustomProduct = async () => {
@@ -348,9 +400,21 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                     {selection.service_details.name}
                   </Typography>
                 </Box>
-                <IconButton sx={{ color: 'white' }}>
-                  {expandedServices[selection.id] ? <ExpandLess /> : <ExpandMore />}
-                </IconButton>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <IconButton 
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteServiceClick(selection);
+                    }}
+                    title="Delete Service"
+                  >
+                    <DeleteForever />
+                  </IconButton>
+                  <IconButton sx={{ color: 'white' }}>
+                    {expandedServices[selection.id] ? <ExpandLess /> : <ExpandMore />}
+                  </IconButton>
+                </Box>
               </Box>
             </Box>
 
@@ -856,6 +920,44 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleAddOrUpdateCustomProduct}>
             {editMode ? 'Update' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Service Confirmation Dialog */}
+      <Dialog open={deleteServiceDialogOpen} onClose={() => setDeleteServiceDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#d32f2f' }}>
+          <DeleteForever sx={{ color: '#d32f2f' }} />
+          Delete Service
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to delete the service "{serviceToDelete?.service_details?.name}"?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            This action cannot be undone. The service and all its associated data will be permanently removed from your quote.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={() => setDeleteServiceDialogOpen(false)}
+            sx={{ color: '#666' }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            color="error"
+            onClick={handleDeleteServiceConfirm}
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : <Delete />}
+            sx={{
+              bgcolor: '#d32f2f',
+              '&:hover': { bgcolor: '#b71c1c' },
+              '&:disabled': { bgcolor: '#ffcdd2' }
+            }}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete Service'}
           </Button>
         </DialogActions>
       </Dialog>
