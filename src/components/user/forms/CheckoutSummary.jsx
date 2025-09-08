@@ -318,6 +318,17 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
       <Container maxWidth="lg">
         {/* Quote Header */}
         <Box mb={4}>
+          <Box display="flex" justifyContent="center">
+            <img
+              src="https://storage.googleapis.com/msgsndr/b8qvo7VooP3JD3dIZU42/media/683efc8fd5817643ff8194f0.jpeg"
+              alt="Company Logo"
+              style={{
+                maxHeight: "80px",
+                maxWidth: "200px",
+                objectFit: "contain",
+              }}
+            />
+          </Box>
           <Typography variant="h4" gutterBottom fontWeight={300} sx={{ color: '#023c8f', textAlign: 'center' }}>
             Quote Summary
           </Typography>

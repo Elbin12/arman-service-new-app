@@ -44,7 +44,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { useCreateScheduleMutation, useGetQuoteDetailsQuery } from '../../store/api/user/quoteApi';
-import { Info } from 'lucide-react';
+import { Info, Plus } from 'lucide-react';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -214,8 +214,20 @@ const QuoteDetailsPage = () => {
         <Box maxWidth="1200px" mx="auto" px={{ xs: 2, md: 4 }} display="flex" flexDirection="column" gap={1}>
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={2}>
+              <Box display="flex" alignItems="center" gap={2}>
+              {/* Logo */}
+              <Box
+                component="img"
+                src="https://storage.googleapis.com/msgsndr/b8qvo7VooP3JD3dIZU42/media/683efc8fd5817643ff8194f0.jpeg"
+                alt="Company Logo"
+                sx={{
+                  height: { xs: 50, sm: 60 },
+                  width: 'auto',
+                  borderRadius: 1,
+                }}
+              />
               <Box>
-                <Typography variant="h4" color='#023c8f' fontWeight="600">
+                <Typography variant="h4" color="#023c8f" fontWeight="600">
                   Quote Details
                 </Typography>
                 <Box display="flex" alignItems="center" gap={2} mt={0.5}>
@@ -228,7 +240,7 @@ const QuoteDetailsPage = () => {
                     sx={{
                       fontWeight: 600,
                       borderRadius: 1,
-                      ...statusStyles[status?.toLowerCase()] || statusStyles['draft'],
+                      ...(statusStyles[status?.toLowerCase()] || statusStyles["draft"]),
                     }}
                   />
                   <Typography variant="body2" color="text.secondary">
@@ -237,6 +249,28 @@ const QuoteDetailsPage = () => {
                 </Box>
               </Box>
             </Box>
+            </Box>
+            <Box textAlign="center">
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => navigate("/")}
+                  sx={{
+                    px: 4,
+                    py: 1.5,
+                    borderRadius: 2,
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                    background: "linear-gradient(90deg, #023c8f, #0056d3)",
+                    "&:hover": {
+                      background: "linear-gradient(90deg, #012a6b, #004bb8)",
+                    },
+                  }}
+                  startIcon={<Plus size={20} />}
+                >
+                  Start New Quote
+                </Button>
+              </Box>
           </Box>
         </Box>
       </Box>
@@ -287,6 +321,7 @@ const QuoteDetailsPage = () => {
                   </Grid>
                 </CardContent>
               </Card>
+
 
               {/* Enhanced Scheduling Section */}
               {!quote_schedule?.is_submitted ? (
