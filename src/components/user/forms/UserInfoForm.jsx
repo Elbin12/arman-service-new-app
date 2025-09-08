@@ -222,6 +222,9 @@
     };
 
     const handleContactSelect = (contact) => {
+      const houseSizeField = contact.custom_fields.find(
+        (f) => f.id === "9zxSJGLApYKAmcudGiMz"
+      );
       onUpdate({
         userInfo: {
           ...data.userInfo,
@@ -229,6 +232,7 @@
           contactName: contact.name,
           contactPhone: contact.phone,
           addressId: "",
+          selectedHouseSize: houseSizeField?.value || ""
         },
       });
     };
