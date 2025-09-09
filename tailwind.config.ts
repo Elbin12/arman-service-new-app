@@ -19,6 +19,14 @@ export default {
 		},
 		extend: {
 			colors: {
+				//NEW COLORS
+
+				brand:{
+					'DEFAULT':"#FF000C"
+				},
+
+				//
+
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',

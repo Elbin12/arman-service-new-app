@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
@@ -21,6 +21,7 @@ import {
   DialogActions,
   DialogContentText,
   CircularProgress,
+  TextField,
 } from '@mui/material';
 import {
   Add,
@@ -44,6 +45,7 @@ import {
   setServiceToDelete,
   clearEditingService,
 } from '../../store/slices/servicesSlice';
+import { useCreateGlobalBasePriceMutation, useGetGlobalBasePriceQuery, useUpdateGlobalBasePriceMutation } from '../../store/api/globalPriceApi.js';
 
 const ServicesManagement = () => {
   const dispatch = useDispatch();
@@ -67,6 +69,14 @@ const ServicesManagement = () => {
 
   // Temporarily disable RTK Query to test basic Redux
   const { data: servicesData = [], isLoading, error } = useGetServicesQuery();
+  const { data: basePriceData, isLoading: basePriceLoading } = useGetGlobalBasePriceQuery();
+
+  const [createGlobalBasePrice] = useCreateGlobalBasePriceMutation();
+  const [updateGlobalBasePrice] = useUpdateGlobalBasePriceMutation();
+
+  const [basePrice, setBasePrice] = useState('');
+  const [originalBasePrice, setOriginalBasePrice] = useState('');
+
   const services = servicesData.results
   console.log(services, 'servicesssssssss');
   
@@ -77,6 +87,26 @@ const ServicesManagement = () => {
   // const services = [];
   // const isLoading = false;
   // const error = null;
+
+  useEffect(() => {
+    if (basePriceData) {
+      setBasePrice(basePriceData.base_price);
+      setOriginalBasePrice(basePriceData.base_price);
+    }
+  }, [basePriceData]);
+
+  const handleSaveBasePrice = async () => {
+    try {
+      if (basePriceData?.id) {
+        await updateGlobalBasePrice({ base_price: basePrice }).unwrap();
+      } else {
+        await createGlobalBasePrice({ base_price: basePrice }).unwrap();
+      }
+      setOriginalBasePrice(basePrice);
+    } catch (error) {
+      console.error("Failed to save base price:", error);
+    }
+  };
 
   const handleCreateService = async (serviceData) => {
       handleCloseWizard();
@@ -160,6 +190,28 @@ const handleEditService = async (service) => {
           onClick={() => dispatch(setWizardOpen(true))}
         >
           Create New Service
+        </Button>
+      </Box>
+
+      <Box 
+        display="flex" 
+        alignItems="center" 
+        gap={2} 
+        mb={3}
+      >
+        <TextField
+          label="Global Base Price"
+          type="number"
+          value={basePrice}
+          onChange={(e) => setBasePrice(e.target.value)}
+          disabled={basePriceLoading}
+        />
+        <Button 
+          variant="contained" 
+          onClick={handleSaveBasePrice}
+          disabled={basePriceLoading || basePrice === originalBasePrice}
+        >
+          Save
         </Button>
       </Box>
 
