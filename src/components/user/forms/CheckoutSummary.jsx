@@ -35,9 +35,27 @@ import {
   DeleteForever,
 } from '@mui/icons-material';
 import { useCalculatePriceMutation } from '../../../store/api/user/priceApi';
-import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation, useDeleteServiceMutation } from '../../../store/api/user/quoteApi';
+import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation, useDeleteServiceMutation, useGetGlobalPriceQuery } from '../../../store/api/user/quoteApi';
 import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
+
+const calculateTotalSelectedPrice = (selectedPackages, quoteData) => {
+    let total = 0;
+    Object.entries(selectedPackages).forEach(([serviceId, packageId]) => {
+      const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
+      const packageDetails = serviceSelection?.package_quotes.find((p) => p.id === packageId);
+      if (packageDetails) {
+        total += parseFloat(packageDetails.total_price || 0);
+      }
+    });
+    return total;
+  };
+
+  const calculateCustomProductsTotal = (customProducts) => {
+    return customProducts.reduce((total, product) => {
+      return total + parseFloat(product.price || 0);
+    }, 0);
+  };
 
 export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes, handleSignatureEnd, setSignature, isStepComplete, handleNext, setActiveStep }) => {
   const [selectedPackages, setSelectedPackages] = useState({});
@@ -73,6 +91,44 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   const sigCanvasRef = useRef(null);
 
   const quoteData = useMemo(() => response, [response]);
+
+  const [finalTotal, setFinalTotal] = useState();
+  const { data: globalPriceData } = useGetGlobalPriceQuery();
+
+  useEffect(() => {
+    if (!quoteData) return;
+
+    const totalSelectedPrice = calculateTotalSelectedPrice(selectedPackages, quoteData);
+    const customProductsTotal = calculateCustomProductsTotal(customProducts);
+    const surchargeAmount = quoteData.quote_surcharge_applicable
+      ? parseFloat(quoteData.location_details?.trip_surcharge || 0)
+      : 0;
+
+    const total = totalSelectedPrice + customProductsTotal + surchargeAmount;
+    const globalBase = parseFloat(globalPriceData?.base_price || 0);
+
+    // ✅ Check if all services have a package selected
+    const allPackagesSelected =
+      quoteData?.service_selections?.length > 0 &&
+      quoteData.service_selections.every(
+        (s) => selectedPackages[s.id] !== undefined
+      );
+
+    if (allPackagesSelected) {
+      // if ALL packages selected → enforce base price minimum
+      setFinalTotal(formatPrice(Math.max(total, globalBase)));
+    } else {
+      // otherwise → use whatever total is (no base price enforcement)
+      setFinalTotal(formatPrice(total));
+    }
+  }, [selectedPackages, customProducts, quoteData, globalPriceData]);
+
+  const surchargeAmount = quoteData
+    ? (quoteData.quote_surcharge_applicable
+        ? parseFloat(quoteData.location_details?.trip_surcharge || 0)
+        : 0)
+    : 0;
+
 
   // Expand all services by default
   useEffect(() => {
@@ -155,7 +211,9 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
       // Remove the service from selectedPackages if it was selected
       const newSelectedPackages = { ...selectedPackages };
       delete newSelectedPackages[serviceToDelete.id];
-      setSelectedPackages(newSelectedPackages);
+      // setSelectedPackages(newSelectedPackages);
+
+      setSelectedPackages([]);
       
       // Update the parent component
       const selectedPackagesArray = Object.entries(newSelectedPackages)
@@ -287,31 +345,6 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
         return "N/A";
     }
   };
-
-  const calculateTotalSelectedPrice = () => {
-    let total = 0;
-    Object.entries(selectedPackages).forEach(([serviceId, packageId]) => {
-      const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
-      const packageDetails = serviceSelection?.package_quotes.find((p) => p.id === packageId);
-      if (packageDetails) {
-        total += parseFloat(packageDetails.total_price || 0);
-      }
-    });
-    return total;
-  };
-
-  const calculateCustomProductsTotal = () => {
-    return customProducts.reduce((total, product) => {
-      return total + parseFloat(product.price || 0);
-    }, 0);
-  };
-
-  const totalSelectedPrice = calculateTotalSelectedPrice();
-  const customProductsTotal = calculateCustomProductsTotal();
-  const surchargeAmount = quoteData.quote_surcharge_applicable
-    ? parseFloat(quoteData.location_details?.trip_surcharge || 0)
-    : 0;
-  const finalTotal = formatPrice(totalSelectedPrice + customProductsTotal + surchargeAmount);
 
   return (
     <Box>

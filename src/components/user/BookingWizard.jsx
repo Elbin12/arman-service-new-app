@@ -92,7 +92,7 @@ export const BookingWizard = () => {
       selectedPackages: submissionData.service_selections
         .flatMap((s) =>
           s.package_quotes.filter((p) => p.is_selected).map((pkg) => ({
-            service_selection_id: pkg.id,
+            service_selection_id: s.id,
             package_id: pkg.package,
             package_name: pkg.package_name,
             total_price: pkg.total_price,
@@ -533,7 +533,7 @@ export const BookingWizard = () => {
       case 3:
         return <CheckoutSummary data={bookingData} onUpdate={updateBookingData} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted}
         additionalNotes={addiditional_notes} setAdditionalNotes={setAdditionalNotes} setActiveStep={setActiveStep} handleSignatureEnd={handleSignatureEnd} setSignature={setSignature}
-        isStepComplete={isStepComplete} handleNext={handleNext}
+        isStepComplete={isStepComplete} handleNext={handleNext} signature={signature}
         />;
       default:
         return "Unknown step";
