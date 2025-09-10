@@ -39,6 +39,14 @@ import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQ
 import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 
+const mapToSelectedService = (serviceSelection, index = 0) => ({
+  id: serviceSelection.service_details?.id,
+  name: serviceSelection.service_details?.name,
+  description: serviceSelection.service_details?.description,
+  order: index, // preserve order or set to 0 if not needed
+});
+
+
 const calculateTotalSelectedPrice = (selectedPackages, quoteData) => {
     let total = 0;
     Object.entries(selectedPackages).forEach(([serviceId, packageId]) => {
@@ -72,6 +80,8 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   const [editMode, setEditMode] = useState(false);
   const [currentProductId, setCurrentProductId] = useState(null);
 
+  const [basePriceApplied, setBasePriceApplied] = useState(false);
+
   const {
     data: response,
     isLoading,
@@ -95,6 +105,18 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   const [finalTotal, setFinalTotal] = useState();
   const { data: globalPriceData } = useGetGlobalPriceQuery();
 
+  // useEffect(()=>{
+  //   console.log(quoteData, 'data', data)
+  //   if (!quoteData) return;
+  //     const updatedServices = quoteData.service_selections.filter((s)=>s.id!==serviceToDelete?.service)
+
+  //     console.log(quoteData.service_selections.filter((s)=>s.id!==serviceToDelete.service), 'dddiiii')
+
+  //     onUpdate({
+  //       selectedServices: updatedServices
+  //     });
+  //   }, [quoteData])
+
   useEffect(() => {
     if (!quoteData) return;
 
@@ -115,10 +137,15 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
       );
 
     if (allPackagesSelected) {
-      // if ALL packages selected → enforce base price minimum
-      setFinalTotal(formatPrice(Math.max(total, globalBase)));
+      if (total < globalBase) {
+        setBasePriceApplied(true);
+        setFinalTotal(formatPrice(globalBase));
+      } else {
+        setBasePriceApplied(false);
+        setFinalTotal(formatPrice(total));
+      }
     } else {
-      // otherwise → use whatever total is (no base price enforcement)
+      setBasePriceApplied(false);
       setFinalTotal(formatPrice(total));
     }
   }, [selectedPackages, customProducts, quoteData, globalPriceData]);
@@ -206,23 +233,38 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     if (!serviceToDelete) return;
 
     try {
-      await deleteService({id:data.submission_id, serviceId:serviceToDelete.service}).unwrap();
-      
-      // Remove the service from selectedPackages if it was selected
-      const newSelectedPackages = { ...selectedPackages };
-      delete newSelectedPackages[serviceToDelete.id];
-      // setSelectedPackages(newSelectedPackages);
+      await deleteService({
+        id: data.submission_id,
+        serviceId: serviceToDelete.service,
+      }).unwrap();
 
-      setSelectedPackages([]);
-      
-      // Update the parent component
+      // Update selected packages
+      const newSelectedPackages = { ...selectedPackages };
+      delete newSelectedPackages[serviceToDelete.id]; 
+      setSelectedPackages(newSelectedPackages);
+
+      // Filter services at the raw level (quoteData)
+      const updatedServiceSelections = quoteData?.service_selections.filter(
+        (s) => s.service !== serviceToDelete.service
+      );
+
+      // Map raw services → frontend simplified format
+      const updatedServices = updatedServiceSelections.map((s, index) =>
+        mapToSelectedService(s, index)
+      );
+
+      // Prepare selectedPackagesArray
       const selectedPackagesArray = Object.entries(newSelectedPackages)
-        .map(([serviceId, packageId]) => {
-          const serviceSelection = quoteData?.service_selections.find((s) => s.id === serviceId);
-          const packageDetails = serviceSelection?.package_quotes.find((p) => p.id === packageId);
+        .map(([selectionId, packageId]) => {
+          const serviceSelection = updatedServiceSelections.find(
+            (s) => s.id === selectionId
+          );
+          const packageDetails = serviceSelection?.package_quotes.find(
+            (p) => p.id === packageId
+          );
           if (packageDetails && serviceSelection) {
             return {
-              service_selection_id: serviceId,
+              service_selection_id: selectionId,
               package_id: packageDetails.package,
               package_name: packageDetails.package_name,
               total_price: packageDetails.total_price,
@@ -234,11 +276,9 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
       onUpdate({
         selectedPackages: selectedPackagesArray,
+        selectedServices: updatedServices,
       });
 
-      // Refetch quote details to get updated data
-      refetch();
-      
       setDeleteServiceDialogOpen(false);
       setServiceToDelete(null);
     } catch (err) {
@@ -365,6 +405,28 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
           <Typography variant="h4" gutterBottom fontWeight={300} sx={{ color: '#023c8f', textAlign: 'center' }}>
             Quote Summary
           </Typography>
+          {window.self !== window.top && (
+            <Box textAlign="center">
+                <Button
+                  size="medium"
+                  variant="outlined"
+                  sx={{
+                    borderColor: "#023c8f",
+                    color: "#023c8f",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    "&:hover": { 
+                      borderColor: "#023c8f", 
+                      backgroundColor: "#e6f0ff",
+                      boxShadow: "0 2px 6px rgba(0, 60, 143, 0.2)"
+                    }
+                  }}
+                  onClick={() => navigate("/booking/")}
+                >
+                  + Create Another Quote
+                </Button>
+            </Box>
+          )}
           <Box display="flex" gap={2} flexWrap="wrap" alignItems="center" justifyContent="center">
             <Typography variant="body1" color="text.secondary">
               Quote #{quoteData.id}
@@ -830,9 +892,22 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               <Typography variant="h6" fontWeight={700}>
                 Total
               </Typography>
-              <Typography variant="h6" fontWeight={700} color="success.main">
-                ${finalTotal}
-              </Typography>
+
+              <Box textAlign="right">
+                <Typography variant="h6" fontWeight={700} color="success.main">
+                  ${finalTotal}
+                </Typography>
+
+                {basePriceApplied && (
+                  <Typography
+                    variant="caption"
+                    component="div"
+                    sx={{ color: "warning.main", fontStyle: "italic", mt: 0.5 }}
+                  >
+                    Note: The total has been adjusted to meet base price of ${formatPrice(globalPriceData?.base_price)}.
+                  </Typography>
+                )}
+              </Box>
             </Box>
 
             {/* Signature Section */}

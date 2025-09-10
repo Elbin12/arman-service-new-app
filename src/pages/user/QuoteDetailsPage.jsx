@@ -43,7 +43,7 @@ import {
   AccessTime,
   CheckCircle,
 } from '@mui/icons-material';
-import { useCreateScheduleMutation, useGetQuoteDetailsQuery } from '../../store/api/user/quoteApi';
+import { useCreateScheduleMutation, useGetGlobalPriceQuery, useGetQuoteDetailsQuery } from '../../store/api/user/quoteApi';
 import { Info, Plus } from 'lucide-react';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -82,6 +82,8 @@ const QuoteDetailsPage = () => {
     refetchOnFocus: true,
     refetchOnReconnect: true,
   });
+
+  const { data: globalPriceData } = useGetGlobalPriceQuery();
 
   const [createSchedule] = useCreateScheduleMutation();
 
@@ -198,6 +200,12 @@ const QuoteDetailsPage = () => {
     }
   };
 
+  console.log(formatPrice(total_base_price) + formatPrice(custom_service_total) );
+
+  console.log(typeof(total_base_price), typeof(custom_service_total));
+  
+  
+
   return (
     <Box className="min-h-screen" sx={{ background: 'linear-gradient(135deg,#f0f4f9 0%,#e2e8f0 70%)', pb: 6 }}>
       {/* Header */}
@@ -215,42 +223,43 @@ const QuoteDetailsPage = () => {
           <Box display="flex" alignItems="center" justifyContent="space-between">
             <Box display="flex" alignItems="center" gap={2}>
               <Box display="flex" alignItems="center" gap={2}>
-              {/* Logo */}
-              <Box
-                component="img"
-                src="https://storage.googleapis.com/msgsndr/b8qvo7VooP3JD3dIZU42/media/683efc8fd5817643ff8194f0.jpeg"
-                alt="Company Logo"
-                sx={{
-                  height: { xs: 50, sm: 60 },
-                  width: 'auto',
-                  borderRadius: 1,
-                }}
-              />
-              <Box>
-                <Typography variant="h4" color="#023c8f" fontWeight="600">
-                  Quote Details
-                </Typography>
-                <Box display="flex" alignItems="center" gap={2} mt={0.5}>
-                  <Typography variant="body2" color="text.secondary">
-                    ID: {quote.id}
+                {/* Logo */}
+                <Box
+                  component="img"
+                  src="https://storage.googleapis.com/msgsndr/b8qvo7VooP3JD3dIZU42/media/683efc8fd5817643ff8194f0.jpeg"
+                  alt="Company Logo"
+                  sx={{
+                    height: { xs: 50, sm: 60 },
+                    width: 'auto',
+                    borderRadius: 1,
+                  }}
+                />
+                <Box>
+                  <Typography variant="h4" color="#023c8f" fontWeight="600">
+                    Quote Details
                   </Typography>
-                  <Chip
-                    label={status?.charAt(0).toUpperCase() + status?.slice(1)}
-                    size="small"
-                    sx={{
-                      fontWeight: 600,
-                      borderRadius: 1,
-                      ...(statusStyles[status?.toLowerCase()] || statusStyles["draft"]),
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    Created: {new Date(created_at).toLocaleDateString()}
-                  </Typography>
+                  <Box display="flex" alignItems="center" gap={2} mt={0.5}>
+                    <Typography variant="body2" color="text.secondary">
+                      ID: {quote.id}
+                    </Typography>
+                    <Chip
+                      label={status?.charAt(0).toUpperCase() + status?.slice(1)}
+                      size="small"
+                      sx={{
+                        fontWeight: 600,
+                        borderRadius: 1,
+                        ...(statusStyles[status?.toLowerCase()] || statusStyles["draft"]),
+                      }}
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Created: {new Date(created_at).toLocaleDateString()}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             </Box>
-            </Box>
-            <Box textAlign="center">
+            {window.self !== window.top && ( 
+              <Box textAlign="center">
                 <Button
                   variant="contained"
                   size="large"
@@ -271,6 +280,7 @@ const QuoteDetailsPage = () => {
                   Start New Quote
                 </Button>
               </Box>
+            )}
           </Box>
         </Box>
       </Box>
@@ -785,111 +795,130 @@ const QuoteDetailsPage = () => {
             {/* Right column - pricing */}
             <Box>
               <Paper
-                elevation={3}
-                sx={{
-                  borderRadius: 2,
-                  position: 'sticky',
-                  top: 80,
-                  overflow: 'hidden',
-                }}
-              >
-                <Box
-                  sx={{
-                    background: '#023c8f',
-                    color: 'white',
-                    px: 3,
-                    py: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                  }}
-                >
-                  <Receipt fontSize="small" />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Pricing Summary
-                  </Typography>
-                </Box>
-                <CardContent>
-                  <Box display="flex" flexDirection="column" gap={2}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Typography variant="body2">Base Price</Typography>
-                      <Typography variant="subtitle2">
-                        ${formatPrice(total_base_price || 0)}
-                      </Typography>
-                    </Box>
-                    
-                    {/* Custom Services Price */}
-                    {custom_service_total && parseFloat(custom_service_total) > 0 && (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Typography variant="body2">Custom Services</Typography>
-                        <Typography variant="subtitle2">
-                          ${formatPrice(custom_service_total)}
-                        </Typography>
-                      </Box>
-                    )}
-                    
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Typography variant="body2">Adjustments</Typography>
-                      <Typography variant="subtitle2">
-                        ${formatPrice(total_adjustments || 0)}
-                      </Typography>
-                    </Box>
-                    
-                    <Divider />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: 'rgba(243,244,246,0.5)',
-                        p: 1,
-                        borderRadius: 1,
-                      }}
-                    >
-                      <Typography variant="subtitle1" fontWeight="600">
-                        Final Total
-                      </Typography>
-                      <div className='flex flex-col'>
-                        <Typography variant="h5" fontWeight="500" color="#42bd3f">
-                          ${formatPrice(final_total * 1.0825 || 0)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" align="center">
-                          Plus Tax
-                        </Typography>
-                      </div>
-                    </Box>
-                    <Divider />
-                    <Typography variant="caption" color="text.secondary" align="center">
-                      Quote created on{' '}
-                      {new Date(created_at).toLocaleString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Paper>
+  elevation={3}
+  sx={{ borderRadius: 2, position: 'sticky', top: 80, overflow: 'hidden' }}
+>
+  <Box
+    sx={{
+      background: '#023c8f',
+      color: 'white',
+      px: 3,
+      py: 2,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
+    }}
+  >
+    <Receipt fontSize="small" />
+    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+      Pricing Summary
+    </Typography>
+  </Box>
+
+  <CardContent>
+    <Box display="flex" flexDirection="column" gap={2}>
+      {/* Sum of services */}
+      {service_selections?.map((service) => (
+        <Box
+          key={service.id}
+          sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <Typography variant="body2">{service.service_details?.name}</Typography>
+          <Typography variant="subtitle2">${formatPrice(service.final_total_price)}</Typography>
+        </Box>
+      ))}
+
+      {/* Custom Services Price */}
+      {custom_service_total && parseFloat(custom_service_total) > 0 && (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2">Custom Services</Typography>
+          <Typography variant="subtitle2">${formatPrice(custom_service_total)}</Typography>
+        </Box>
+      )}
+
+      {/* Calculate totals */}
+      {(() => {
+        const totalServicePrice = service_selections?.reduce(
+          (sum, s) => sum + Number(s.final_total_price || 0),
+          0
+        ) || 0;
+
+        // const customTotal = Number(custom_service_total || 0);
+        // const base = Number(total_base_price || 0);
+        const subtotal = totalServicePrice;
+
+        const adjustment = subtotal < (globalPriceData?.base_price || 0)
+          ? (globalPriceData.base_price - subtotal)
+          : 0;
+
+        const final = subtotal + adjustment;
+        const taxRate = 0.0825; // 8.25% tax
+        const taxAmount = final * taxRate;
+        const finalWithTax = final + taxAmount;
+
+        return (
+          <>
+            {/* Adjustments */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2">Adjustments</Typography>
+              <Typography variant="subtitle2">${formatPrice(adjustment)}</Typography>
+            </Box>
+
+            {/* Tax */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2">Tax (8.25%)</Typography>
+              <Typography variant="subtitle2">${formatPrice(taxAmount)}</Typography>
+            </Box>
+
+            {/* Note if subtotal < base price */}
+            {subtotal < (globalPriceData?.base_price || 0) && (
+              <Typography variant="caption" color="error">
+                Note: Minimum base price is ${formatPrice(globalPriceData?.base_price || 0)}
+              </Typography>
+            )}
+
+            <Divider />
+
+            {/* Final Total */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(243,244,246,0.5)',
+                p: 1,
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight="600">Final Total</Typography>
+              <div className='flex flex-col'>
+                <Typography variant="h5" fontWeight="500" color="#42bd3f">
+                  ${formatPrice(finalWithTax)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" align="center">
+                  Tax included
+                </Typography>
+              </div>
+            </Box>
+          </>
+        );
+      })()}
+
+      <Divider />
+      <Typography variant="caption" color="text.secondary" align="center">
+        Quote created on{' '}
+        {new Date(created_at).toLocaleString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </Typography>
+    </Box>
+  </CardContent>
+</Paper>
+
             </Box>
           </Box>
         </Container>
