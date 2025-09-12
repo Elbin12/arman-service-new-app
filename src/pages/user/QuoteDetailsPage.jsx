@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -86,6 +86,56 @@ const QuoteDetailsPage = () => {
   const { data: globalPriceData } = useGetGlobalPriceQuery();
 
   const [createSchedule] = useCreateScheduleMutation();
+
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+
+  const firstName = queryParams.get("first_name");
+  const lastName = queryParams.get("last_name");
+  const phone = queryParams.get("phone");
+  const email = queryParams.get("email");
+  const iframeRef = useRef(null);
+  // const iframeSrc = `https://links.theservicepilot.com/widget/booking/1rwE7cUSN5MxPeI1CHiB?first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(email)}`;
+const params = new URLSearchParams();
+const [iframeLoaded, setIframeLoaded] = useState(false);
+
+
+if (firstName) params.append("first_name", firstName);
+if (lastName) params.append("last_name", lastName);
+if (phone) params.append("phone", phone);
+if (email) params.append("email", email);
+const paramsString = params.toString();
+
+// ---- choose booking id depending on embed context (preserve params) ----
+const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+const PRIMARY_BOOKING_ID = "1rwE7cUSN5MxPeI1CHiB";   // your default (with params)
+const IFRAME_BOOKING_ID  = "Bh99EZHXlRpJ0CfqwDEW";   // alternate widget ID for embedded context
+const bookingId = isInIframe ? IFRAME_BOOKING_ID : PRIMARY_BOOKING_ID;
+const iframeSrc = `https://links.theservicepilot.com/widget/booking/${bookingId}${paramsString ? `?${paramsString}` : ""}`;
+
+  useEffect(() => {
+  const script = document.createElement("script");
+  script.src = "https://links.theservicepilot.com/js/form_embed.js";
+  script.async = true;
+
+  script.onload = () => {
+    console.log("Form embed script loaded.");
+  };
+
+  const timer = setTimeout(() => {
+    if (iframeRef.current) {
+      document.body.appendChild(script);
+    }
+  }, 500);
+
+  return () => {
+    clearTimeout(timer);
+    if (document.body.contains(script)) {
+      document.body.removeChild(script);
+    }
+  };
+}, []);
+
 
   // Expand all services by default
   useEffect(() => {
@@ -334,134 +384,37 @@ const QuoteDetailsPage = () => {
 
 
               {/* Enhanced Scheduling Section */}
+              {/* External Scheduling Iframe */}
               {!quote_schedule?.is_submitted ? (
-                <Card
-                  elevation={6}
+                <Box
                   sx={{
                     borderRadius: 3,
-                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                    background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
                   }}
                 >
-                  <Box
-                    sx={{
-                      background: 'linear-gradient(135deg, #023c8f 0%, #0056d3 100%)',
-                      color: 'white',
-                      px: 4,
-                      py: 3,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
-                      borderRadius: '12px 12px 0 0',
-                    }}
-                  >
-                    <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
-                      <Schedule />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                        Schedule Quote
-                      </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                        Choose your preferred date and time
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <CardContent sx={{ p: 4 }}>
-                    <Alert 
-                      severity="info" 
-                      sx={{ 
-                        mb: 3,
-                        bgcolor: '#e3f2fd',
-                        border: '1px solid #1976d2',
-                        borderRadius: 2,
-                      }}
-                    >
-                      <AlertTitle sx={{ fontWeight: 600 }}>Ready to Schedule?</AlertTitle>
-                      Select your preferred date and time to book this service with our team.
-                    </Alert>
-
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, color: '#023c8f' }}>
-                        <CalendarToday sx={{ mr: 1, verticalAlign: 'middle', fontSize: 20 }} />
-                        Select Date & Time
-                      </Typography>
-                      
-                      <LocalizationProvider dateAdapter={AdapterDateFns}>
-                        <DateTimePicker
-                          label="Choose Date & Time"
-                          value={selectedDate}
-                          onChange={(newValue) => setSelectedDate(newValue)}
-                          minDateTime={new Date()}
-                          slotProps={{
-                            textField: {
-                              fullWidth: true,
-                              size: "medium",
-                              sx: {
-                                '& .MuiOutlinedInput-root': {
-                                  borderRadius: 2,
-                                  bgcolor: 'white',
-                                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#023c8f',
-                                  },
-                                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                    borderColor: '#023c8f',
-                                  },
-                                },
-                              },
-                            },
-                          }}
-                        />
-                      </LocalizationProvider>
-                    </Box>
-
-                    {selectedDate && (
-                      <Alert 
-                        severity="success" 
-                        sx={{ 
-                          mb: 3,
-                          bgcolor: '#f1f8e9',
-                          border: '1px solid #4caf50',
-                          borderRadius: 2,
-                        }}
-                      >
-                        <Typography variant="body2">
-                          <strong>Selected:</strong> {selectedDate.toLocaleDateString()} at {selectedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                      </Alert>
+                  <CardContent sx={{ p: 0 }}>
+                    {!iframeLoaded && (
+                      <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+                        <CircularProgress size={24} sx={{ color: "#023c8f" }} />
+                        <Typography variant="body2" sx={{ ml: 1 }}>Loading scheduler...</Typography>
+                      </Box>
                     )}
-
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      size="large"
-                      sx={{
-                        py: 2,
-                        bgcolor: selectedDate ? '#42bd3f' : '#023c8f',
-                        "&:hover": { 
-                          bgcolor: selectedDate ? '#369932' : '#012a6b',
-                          transform: 'translateY(-1px)',
-                        },
-                        borderRadius: 2,
-                        textTransform: "none",
-                        fontWeight: 700,
-                        fontSize: '1.1rem',
-                        transition: 'all 0.3s ease',
-                        boxShadow: selectedDate ? '0 4px 20px rgba(66, 189, 63, 0.3)' : '0 4px 20px rgba(2, 60, 143, 0.3)',
+                    <iframe
+                      ref={iframeRef}
+                      src={iframeSrc}
+                      style={{
+                        width: "100%",
+                        border: "none",
+                        overflow: "hidden",
+                        height: iframeLoaded ? "950px" : "600px",
+                        display: iframeLoaded ? "block" : "none"
                       }}
-                      onClick={handleSchedule}
-                      disabled={!selectedDate}
-                      startIcon={<AccessTime />}
-                    >
-                      {selectedDate ? 'Confirm Schedule' : 'Select Date to Schedule'}
-                    </Button>
-
-                    <Typography variant="caption" color="text.secondary" align="center" sx={{ display: 'block', mt: 2 }}>
-                      Our team will confirm your appointment shortly after scheduling
-                    </Typography>
+                      scrolling="no"
+                      onLoad={() => setIframeLoaded(true)}
+                    />
                   </CardContent>
-                </Card>
-              ) : (
+                </Box>
+              ): (
                 <Card
                   elevation={4}
                   sx={{

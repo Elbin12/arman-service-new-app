@@ -38,6 +38,7 @@ import { useCalculatePriceMutation } from '../../../store/api/user/priceApi';
 import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation, useDeleteServiceMutation, useGetGlobalPriceQuery } from '../../../store/api/user/quoteApi';
 import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const mapToSelectedService = (serviceSelection, index = 0) => ({
   id: serviceSelection.service_details?.id,
@@ -81,6 +82,11 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   const [currentProductId, setCurrentProductId] = useState(null);
 
   const [basePriceApplied, setBasePriceApplied] = useState(false);
+
+  const [searchParams] = useSearchParams();
+  const submissionIdFromUrl = searchParams.get("submission_id");
+
+  const navigate = useNavigate();
 
   const {
     data: response,
@@ -241,7 +247,11 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
       // Update selected packages
       const newSelectedPackages = { ...selectedPackages };
       delete newSelectedPackages[serviceToDelete.id]; 
-      setSelectedPackages(newSelectedPackages);
+      if(submissionIdFromUrl){
+        setSelectedPackages([]);
+      }else{
+        setSelectedPackages(newSelectedPackages);
+      }
 
       // Filter services at the raw level (quoteData)
       const updatedServiceSelections = quoteData?.service_selections.filter(

@@ -453,7 +453,7 @@ export const BookingWizard = () => {
       await submitQuote({ submissionId: submission_id, payload }).unwrap();
       
       localStorage.removeItem("bookingData");      // Navigate to success page or quote details
-      navigate(`/quote/details/${submission_id}`);
+      navigate(`/quote/details/${submission_id}?first_name=${quoteDetails?.contact?.first_name}&last_name=${quoteDetails?.contact?.last_name}&email=${quoteDetails?.contact?.email}&phone=${quoteDetails?.contact?.phone}`);
       
     } catch (err) {
       console.error("Failed to submit quote", err);
