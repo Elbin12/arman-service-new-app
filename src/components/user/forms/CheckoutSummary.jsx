@@ -692,24 +692,25 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
                 {/* Question Responses */}
                 {selection.question_responses?.length > 0 && (
-                  <Box mt={4}>
-                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#023c8f' }} gutterBottom>
+                  <Box mt={2}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: "#023c8f", mb: 1 }}>
                       Your Responses
                     </Typography>
-                    <Grid container spacing={2}>
-                      {selection.question_responses.map((response) => (
-                        <Grid item xs={12} sm={6} key={response.id}>
-                          <Box p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, border: "1px solid #023c8f" }}>
-                            <Typography variant="body2" fontWeight={600} gutterBottom sx={{ color: '#023c8f' }}>
-                              {response.question_text}
-                            </Typography>
-                            <Typography variant="body2" color="text.primary">
-                              {renderQuestionResponse(response)}
-                            </Typography>
-                          </Box>
-                        </Grid>
+                    <Box sx={{ bgcolor: "#f8f9fa", borderRadius: 1, p: 1 }}>
+                      {selection.question_responses.map((response, index) => (
+                        <Box key={response.id} sx={{ display: 'flex', mb: 0.5, alignItems: 'center' }}>
+                          <Typography variant="body1" sx={{ color: "#023c8f", fontWeight: 600, mr: 1, minWidth: '25px', }}>
+                            Q{index + 1}:
+                          </Typography>
+                          <Typography variant="body1" sx={{ flex: 1, mr: 1, }}>
+                            {response.question_text}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content', }}>
+                            {renderQuestionResponse(response)}
+                          </Typography>
+                        </Box>
                       ))}
-                    </Grid>
+                    </Box>
                   </Box>
                 )}
               </Box>
