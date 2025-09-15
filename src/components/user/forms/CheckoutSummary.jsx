@@ -66,7 +66,7 @@ const calculateTotalSelectedPrice = (selectedPackages, quoteData) => {
     }, 0);
   };
 
-export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes, handleSignatureEnd, setSignature, isStepComplete, handleNext, setActiveStep }) => {
+export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepted, additionalNotes, setAdditionalNotes, handleSignatureEnd, setSignature, isStepComplete, handleNext, setActiveStep, setBookingData,initialBookingData }) => {
   const [selectedPackages, setSelectedPackages] = useState({});
   const [expandedServices, setExpandedServices] = useState({});
   const [customProducts, setCustomProducts] = useState([]);
@@ -431,7 +431,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                       boxShadow: "0 2px 6px rgba(0, 60, 143, 0.2)"
                     }
                   }}
-                  onClick={() => navigate("/booking/")}
+                  onClick={() => {setBookingData(initialBookingData); setActiveStep(0); navigate("/booking/")}}
                 >
                   + Create Another Quote
                 </Button>

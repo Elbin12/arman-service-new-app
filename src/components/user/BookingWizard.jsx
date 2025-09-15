@@ -28,6 +28,30 @@ const steps = [
   "Review & Submit"
 ];
 
+const initialBookingData = {
+  submission_id: null,
+  userInfo: {
+    firstName: "",
+    phone: "",
+    email: "",
+    address: "",
+    latitude: "",
+    longitude: "",
+    googlePlaceId: "",
+    contactId: null,
+    selectedLocation: null,
+    selectedHouseSize: null
+  },
+  selectedServices: [],
+  selectedService: null,
+  selectedPackage: null,
+  questionAnswers: {},
+  pricing: { basePrice: 0, tripSurcharge: 0, questionAdjustments: 0, totalPrice: 0 },
+  quoteDetails: null,
+  selectedPackages: [],
+};
+
+
 export const BookingWizard = () => {
   const [searchParams] = useSearchParams();
   const submissionIdFromUrl = searchParams.get("submission_id");
@@ -533,7 +557,7 @@ export const BookingWizard = () => {
       case 3:
         return <CheckoutSummary data={bookingData} onUpdate={updateBookingData} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted}
         additionalNotes={addiditional_notes} setAdditionalNotes={setAdditionalNotes} setActiveStep={setActiveStep} handleSignatureEnd={handleSignatureEnd} setSignature={setSignature}
-        isStepComplete={isStepComplete} handleNext={handleNext} signature={signature}
+        isStepComplete={isStepComplete} handleNext={handleNext} signature={signature} setBookingData={setBookingData} initialBookingData={initialBookingData}
         />;
       default:
         return "Unknown step";

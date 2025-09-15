@@ -907,28 +907,27 @@ const QuoteDetailsPage = () => {
                     >
                       <AlertTitle sx={{ fontWeight: 600 }}>Service Scheduled!</AlertTitle>
                       <Typography variant="body2" sx={{ mt: 1 }}>
-  <strong>Date & Time (UTC):</strong>
-  <br />
-  {new Date(quote_schedule?.scheduled_date).toLocaleDateString("en-GB", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  })}
-  <br />
-  <AccessTime sx={{ mr: 1, verticalAlign: "middle", fontSize: 16 }} />
-  {new Date(quote_schedule?.scheduled_date).toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,   // 👈 ensures AM/PM format
-    timeZone: "UTC",
-  })
-  .replace("am", "AM")
-  .replace("pm", "PM")
-  }
-</Typography>
-
+                        <strong>Date & Time (UTC):</strong>
+                        <br />
+                        {new Date(quote_schedule?.scheduled_date).toLocaleDateString("en-GB", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          timeZone: "UTC",
+                        })}
+                        <br />
+                        <AccessTime sx={{ mr: 1, verticalAlign: "middle", fontSize: 16 }} />
+                        {new Date(quote_schedule?.scheduled_date).toLocaleTimeString("en-GB", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,   // 👈 ensures AM/PM format
+                          timeZone: "UTC",
+                        })
+                        .replace("am", "AM")
+                        .replace("pm", "PM")
+                        }
+                      </Typography>
                     </Alert>
 
                     <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 3 }}>
