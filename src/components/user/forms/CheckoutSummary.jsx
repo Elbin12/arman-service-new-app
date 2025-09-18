@@ -454,8 +454,29 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
         {/* Customer Info */}
         <Card sx={{ mb: 3 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+          {/* ✅ Powered by text in red-marked portion */}
+          <Grid item xs={12} sm={6} paddingRight={2} textAlign="right">
+            <Typography
+              variant="caption"
+              sx={{ fontSize: {xs:"0.5rem", md:"0.7rem"}, color: "text.secondary" }}
+            >
+              Powered by{" "}
+              <a
+                href="https://theservicepilot.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "#023c8f",
+                  textDecoration: "none",
+                  fontWeight: 500,
+                }}
+              >
+                The Service Pilot
+              </a>
+            </Typography>
+          </Grid>
+          <CardContent sx={{ px: 3, py:0 }}>
+            <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f', fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.5rem"} }}>
               Customer Information
             </Typography>
             <Grid container spacing={2}>
@@ -463,31 +484,31 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                 <Typography variant="caption" color="text.secondary">
                   Name
                 </Typography>
-                <Typography variant="body1">{quoteData.contact?.first_name}</Typography>
+                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>{quoteData.contact?.first_name}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="caption" color="text.secondary">
                   Email
                 </Typography>
-                <Typography variant="body1">{quoteData.contact?.email}</Typography>
+                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>{quoteData.contact?.email}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="caption" color="text.secondary">
                   Phone
                 </Typography>
-                <Typography variant="body1">{quoteData.contact?.phone}</Typography>
+                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>{quoteData.contact?.phone}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="caption" color="text.secondary">
                   House sq ft
                 </Typography>
-                <Typography variant="body1">{quoteData.house_sqft} sq ft</Typography>
+                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>{quoteData.house_sqft} sq ft</Typography>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="caption" color="text.secondary">
                   Address
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>
                   {quoteData.address?.street_address}, {quoteData.address?.city}, {quoteData.address?.state}, {quoteData.address?.postal_code}
                 </Typography>
               </Grid>
@@ -510,25 +531,33 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               }}
               onClick={() => toggleServiceExpansion(selection.id)}
             >
-              <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box display="flex" alignItems="center" justifyContent="space-between" 
+              sx={{
+                minHeight: { xs: 48, sm: 36 },
+                gap: 1,
+              }}>
                 <Box>
-                  <Typography variant="h6" fontWeight={600} sx={{ color: 'white' }}>
+                  <Typography fontWeight={600} 
+                    sx={{ color: 'white', fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.5rem"},flex: 1,
+                      whiteSpace: "normal",
+                      wordBreak: "break-word"
+                    }}>
                     {selection.service_details.name}
                   </Typography>
                 </Box>
-                <Box display="flex" alignItems="center" gap={1}>
+                <Box display="flex" alignItems="center" gap={{sx:0, md:1}}>
                   <IconButton 
-                    sx={{ color: 'white' }}
+                    sx={{ color: 'white', padding:0 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteServiceClick(selection);
                     }}
                     title="Delete Service"
                   >
-                    <DeleteForever />
+                    <DeleteForever sx={{fontSize: { xs: "1.125rem", sm: "1.5rem", lg: "1.625rem" }}}/>
                   </IconButton>
-                  <IconButton sx={{ color: 'white' }}>
-                    {expandedServices[selection.id] ? <ExpandLess /> : <ExpandMore />}
+                  <IconButton sx={{ color: 'white', padding:0 }}>
+                    {expandedServices[selection.id] ? <ExpandLess sx={{fontSize: { xs: "1.125rem", sm: "1.5rem", lg: "1.625rem" }}}/> : <ExpandMore sx={{fontSize: { xs: "1.125rem", sm: "1.5rem", lg: "1.625rem" }}}/>}
                   </IconButton>
                 </Box>
               </Box>
@@ -537,7 +566,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
             {/* Collapsible Content */}
             <Collapse in={expandedServices[selection.id]} timeout="auto" unmountOnExit>
               <Box sx={{ px: 3, py: 1 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: { xs: "0.75rem", sm: "0.875rem", md:'1rem' } }}>
                   {selection.service_details.description}
                 </Typography>
                 
@@ -594,7 +623,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                 )}
 
                 {/* Package Selection */}
-                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
+                <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f',fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.3rem"} }}>
                   Select Package
                 </Typography>
                 <FormControl component="fieldset" fullWidth>
@@ -607,9 +636,9 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                       }
                     }}
                   >
-                    <Grid container spacing={3}>
+                    <Grid container spacing={3} alignItems="stretch">
                       {selection.package_quotes.map((packageQuote) => (
-                        <Grid item xs={12} md={6} key={packageQuote.id}>
+                        <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={packageQuote.id}>
                           <Card
                             variant="outlined"
                             sx={{
@@ -618,22 +647,34 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                 selectedPackages[selection.id] === packageQuote.id
                                   ? "2px solid #42bd3f"
                                   : "1px solid #e0e0e0",
-                              bgcolor: selectedPackages[selection.id] === packageQuote.id ? "#f8fff8" : "white",
+                              bgcolor:
+                                selectedPackages[selection.id] === packageQuote.id
+                                  ? "#f8fff8"
+                                  : "white",
                               "&:hover": { borderColor: "#42bd3f" },
                               borderRadius: 3,
-                              minHeight: 220,
+                              height:"100%",
+                              width: "100%", // responsive height
+                              maxWidth: 300,
+                              minWidth: 180,
+                              minHeight: { xs: 180, sm: 200, md: 220 }, // responsive height
                               display: "flex",
                               flexDirection: "column",
                               justifyContent: "space-between",
                             }}
                             onClick={() => handlePackageSelect(selection.id, packageQuote)}
                           >
-                            <CardContent sx={{ p: 4 }}>
-                              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                                <Typography variant="h6" fontWeight={700}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 },textAlign: "center", }}>
+                              {/* Header */}
+                              {/* <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}> */}
+                                <Typography
+                                  variant="h6"
+                                  fontWeight={700}
+                                  sx={{ fontSize: { xs: "1rem", sm: "1.2rem", md: "1.6rem" } }}
+                                >
                                   {packageQuote.package_name}
                                 </Typography>
-                                <FormControlLabel
+                                {/* <FormControlLabel
                                   value={packageQuote.id}
                                   control={
                                     <Radio
@@ -645,15 +686,24 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                   }
                                   label=""
                                   sx={{ m: 0 }}
-                                />
-                              </Box>
+                                /> */}
+                              {/* </Box> */}
 
-                              <Typography variant="h4" sx={{ color: "#42bd3f", fontWeight: 700, mb: 2 }}>
+                              {/* Price */}
+                              <Typography
+                                variant="h4"
+                                sx={{
+                                  color: "#42bd3f",
+                                  fontWeight: 700,
+                                  mb: 2,
+                                  fontSize: { xs: "1.5rem", sm: "1.8rem", md: "2rem" },
+                                }}
+                              >
                                 ${formatPrice(packageQuote.total_price)}
                               </Typography>
 
                               {/* Features List */}
-                              <Box>
+                              <Box textAlign="left">
                                 {[
                                   ...(packageQuote.included_features_details || []).map((f) => ({
                                     ...f,
@@ -666,15 +716,20 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                 ].map((feature) => (
                                   <Box key={feature.id} display="flex" alignItems="center" mb={0.8}>
                                     {feature.included ? (
-                                      <Check sx={{ fontSize: 18, color: "#42bd3f", mr: 1 }} />
+                                      <Check sx={{ fontSize: { xs: 16, sm: 18 }, color: "#42bd3f", mr: 1 }} />
                                     ) : (
-                                      <Close sx={{ fontSize: 18, color: "#9e9e9e", mr: 1 }} />
+                                      <Close sx={{ fontSize: { xs: 16, sm: 18 }, color: "#9e9e9e", mr: 1 }} />
                                     )}
                                     <Typography
                                       variant="body2"
                                       sx={{
+                                        fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.9rem" },
                                         color: feature.included ? "text.primary" : "text.disabled",
                                         fontWeight: feature.included ? 500 : 400,
+                                        overflowWrap: "break-word",
+                                        wordWrap: "break-word",
+                                        flexShrink: 1,           // allow shrinking inside flex
+                                        minWidth: 0, 
                                       }}
                                     >
                                       {feature.name}
