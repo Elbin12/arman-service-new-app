@@ -735,7 +735,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                   fontSize: { xs: "1.5rem", sm: "1.8rem", md: "2rem" },
                                 }}
                               >
-                                ${formatPrice(packageQuote.total_price)}
+                                ${formatPrice(Math.round(Number(packageQuote.total_price))).replace(/\.\d+$/, "")}
                               </Typography>
 
                               {/* Features List */}
