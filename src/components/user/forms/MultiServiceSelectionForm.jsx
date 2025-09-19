@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useCreateCustomProductMutation, useGetServicesQuery } from "../../../store/api/user/quoteApi";
+import { useCreateCustomProductMutation, useGetServicesQuery, useUpdateCustomProductMutation } from "../../../store/api/user/quoteApi";
 import { getServiceIcon } from "../../../utils/serviceIcons";
 
 const MultiServiceSelectionForm = ({ data, onUpdate }) => {
@@ -21,17 +21,28 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
     }
   );
 
+  const [updateCustomProduct, { isLoading: isUpdating }] = useUpdateCustomProductMutation();
   const [createCustomProduct, { isLoading: isCreating }] = useCreateCustomProductMutation();
 
   const services = servicesData?.services || [];
-  const customProducts = servicesData?.custom_services || [];
+  // const customProducts = servicesData?.custom_services || [];
 
+  const [customProducts, setCustomProducts] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState({
     product_name: "",
     description: "",
     price: "",
   });
+
+  useEffect(()=>{
+    if (servicesData?.custom_services){
+      setCustomProducts(servicesData?.custom_services)
+    }
+    onUpdate({
+      selectedCustomProducts: servicesData?.custom_services.filter((p) => p.is_active),
+    });
+  },[servicesData])
 
   useEffect(() => {
     if (services) {
@@ -57,14 +68,24 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
   };
 
   // Toggle custom product selection
-  const toggleCustomProduct = (product) => {
-    const existing = data.selectedCustomProducts || [];
-    const isSelected = existing.find((p) => p.id === product.id);
-    const updatedProducts = isSelected
-      ? existing.filter((p) => p.id !== product.id)
-      : [...existing, product];
+  const toggleCustomProduct = async (product) => {
+    const updatedStatus = !product.is_active;
 
-    onUpdate({ selectedCustomProducts: updatedProducts });
+    await updateCustomProduct({
+      id: product.id,
+      is_active: updatedStatus,
+    }).unwrap();
+
+    const updatedProducts = customProducts.map((p) =>
+      p.id === product.id ? { ...p, is_active: updatedStatus } : p
+    );
+
+    setCustomProducts(updatedProducts);
+
+    // Pass updated list to parent
+    onUpdate({
+      selectedCustomProducts: updatedProducts.filter((p) => p.is_active),
+    });
   };
 
   // Add custom product → ideally call API instead of local update
@@ -112,7 +133,7 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
                       alt={service.name}
                       className="max-w-full max-h-full object-contain"
                     />
-                </div>
+                  </div>
                   <p className="font-semibold">{service.name}</p>
                   {/* <p className="text-sm text-gray-600">
                     {service.description}
@@ -132,12 +153,26 @@ const MultiServiceSelectionForm = ({ data, onUpdate }) => {
             {customProducts.map((prod) => {
               
               return (
-                <Card key={prod.id}>
-                  <CardContent className="flex items-center space-x-3 py-2 pl-4">
+                <Card key={prod.id} className={`cursor-pointer ${
+                prod.is_active ? "border-blue-500 bg-blue-50" : ""
+              }`}
+              onClick={() => toggleCustomProduct(prod)}>
+                  <CardContent className="flex items-center space-x-3 p-4">
+                    <Checkbox
+                      checked={prod.is_active}
+                      onCheckedChange={() => toggleCustomProduct(prod)}
+                    />
+                    <div className="w-10 h-10 flex items-center justify-center">
+                    <img 
+                      src={getServiceIcon(prod.product_name)} 
+                      alt={prod.product_name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
                     <div>
                       <p className="font-medium">{prod.product_name}</p>
                       <p className="text-sm text-gray-600">{prod.description}</p>
-                      <p className="text-sm text-gray-800">${prod.price}</p>
+                      <p className="text-sm text-gray-800">$ {prod.price}</p>
                     </div>
                   </CardContent>
                 </Card>

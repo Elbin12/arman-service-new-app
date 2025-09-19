@@ -82,7 +82,7 @@ export const quoteApi = createApi({
     updateCustomProduct: builder.mutation({
       query: ({ id, ...payload }) => ({
         url: `custom-services/${id}/`,
-        method: 'PUT',
+        method: 'PATCH',
         data: payload,
       }),
     }),

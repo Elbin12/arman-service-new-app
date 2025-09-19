@@ -364,13 +364,32 @@ export const BookingWizard = () => {
         console.error("Failed to save contact", err)
         alert("Could not save contact. Please try again.")
       }
-    } else if(activeStep === 1){
-      try{  
-        const payload = {service_ids:bookingData.selectedServices.map(service => service.id)}
-        await addServiceToSubmission({submissionId:bookingData.submission_id, payload})
-        setActiveStep((prevActiveStep) => prevActiveStep + 1)
-      }catch(error){
-        console.log(error, 'error')
+    } else if (activeStep === 1) {
+      try {
+        const hasServices = (bookingData.selectedServices?.length ?? 0) > 0;
+        const hasCustomProducts = (bookingData.selectedCustomProducts?.length ?? 0) > 0;
+
+        // Always call API (if services exist, send them; otherwise send empty array)
+        const payload = {
+          service_ids: hasServices
+            ? bookingData.selectedServices.map(service => service.id)
+            : [],
+        };
+
+        await addServiceToSubmission({
+          submissionId: bookingData.submission_id,
+          payload,
+        });
+
+        if (hasCustomProducts && !hasServices) {
+          // Only custom products → jump to step 3
+          setActiveStep(3);
+        } else {
+          // Either services only OR both services + custom products → normal flow
+          setActiveStep(prev => prev + 1);
+        }
+      } catch (error) {
+        console.log(error, "error");
       }
     }
     else if (activeStep === 2) {
@@ -443,22 +462,26 @@ export const BookingWizard = () => {
 
   const handleSubmit = async () => {
     try {
-      const { submission_id, selectedPackages, quoteDetails } = bookingData;
+      const { submission_id, selectedPackages, quoteDetails, selectedCustomProducts } = bookingData;
       
       if (!submission_id) {
         alert("Missing submission ID.");
         return;
       }
 
-      if (!selectedPackages || selectedPackages.length === 0) {
-        alert("Please select at least one package before submitting.");
+      if (
+        (!selectedPackages || selectedPackages.length === 0) &&
+        (!selectedCustomProducts || selectedCustomProducts.length === 0) &&
+        (!selectedServices || selectedServices.length === 0)
+      ) {
+        alert("Please select at least one package, service, or custom product before submitting.");
         return;
       }
 
       // Prepare the payload for quote submission
       const payload = {
         customer_confirmation: true,
-        selected_packages: selectedPackages.map(pkg => ({
+        selected_packages: selectedPackages?.map(pkg => ({
           service_selection_id: pkg.service_selection_id,
           package_id: pkg.package_id,
           package_name: pkg.package_name,
@@ -535,12 +558,38 @@ export const BookingWizard = () => {
       );
     }
       case 1:
-        return Array.isArray(bookingData.selectedServices) && bookingData.selectedServices.length > 0;
+        return (
+          (bookingData.selectedServices?.length ?? 0) > 0 ||
+          (bookingData.selectedCustomProducts?.length ?? 0) > 0
+        );
         // return true;
       case 2:
         return true; // Questions are optional, so always allow proceeding
-      case 3:
-        return bookingData.selectedPackages && bookingData.selectedPackages.length === bookingData.selectedServices.length && termsAccepted && signature;
+        case 3:
+          console.log(
+            "packages", bookingData.selectedPackages?.length,
+            "services", bookingData.selectedServices?.length,
+            "custom", bookingData.selectedCustomProducts?.length,
+            "terms", termsAccepted,
+            "signature", signature
+          );
+
+          const hasCustom = bookingData.selectedCustomProducts?.length > 0;
+          const servicesCount = bookingData.selectedServices?.length ?? 0;
+          const packagesCount = bookingData.selectedPackages?.length ?? 0;
+
+          const validSelection =
+            // Case 1: custom only
+            (hasCustom && servicesCount === 0) ||
+
+            // Case 2: services with matching packages
+            (servicesCount > 0 && servicesCount === packagesCount) ||
+
+            // Case 3: custom + services (services must still match packages)
+            (hasCustom && servicesCount > 0 && servicesCount === packagesCount);
+
+          return validSelection && termsAccepted && Boolean(signature);
+
       default:
         return false
     }

@@ -123,6 +123,14 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   //     });
   //   }, [quoteData])
 
+  console.log(selectedPackages, 'oaa')
+
+  useEffect(() => {
+    onUpdate({selectedPackages:[]})
+  }, []);
+
+
+
   useEffect(() => {
     if (!quoteData) return;
 
@@ -175,9 +183,11 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
   }, [quoteData]);
 
   useEffect(() => {
-    if (quoteData && !isLoading && !data.quoteDetails) {
+    if (quoteData && !isLoading) {
+      console.log(quoteData, 'datad')
       onUpdate({
         quoteDetails: quoteData,
+        selectedCustomProducts: quoteData?.custom_products.filter((p) => p.is_active),
         pricing: {
           basePrice: parseFloat(quoteData.total_base_price || 0),
           totalAdjustments: parseFloat(quoteData.total_adjustments || 0),
@@ -217,6 +227,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
           return {
             service_selection_id: serviceId,
             package_id: packageDetails.package,
+            package_quote_id:packageDetails.id,
             package_name: packageDetails.package_name,
             total_price: packageDetails.total_price,
           };
@@ -336,6 +347,31 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
       console.error("Failed to delete custom product", err);
     }
   };
+
+  const handleToggleCustomProduct = async (product) => {
+    try {
+      const updated = await updateCustomProduct({
+        id: product.id,
+        is_active: !product.is_active, // toggle
+      }).unwrap();
+
+      // Build the new array first
+      const updatedList = customProducts.map((p) =>
+        p.id === product.id ? { ...p, is_active: updated.is_active } : p
+      );
+
+      // Update state
+      setCustomProducts(updatedList);
+
+      // Notify parent with the new list
+      onUpdate({
+        selectedCustomProducts: updatedList.filter((p) => p.is_active),
+      });
+    } catch (error) {
+      console.error("Failed to update custom product:", error);
+    }
+  };
+
 
   const openEditDialog = (product) => {
     setEditMode(true);
@@ -789,11 +825,17 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                     <Card
                       variant="outlined"
                       sx={{
-                        border: "1px solid #e0e0e0",
-                        bgcolor: "white",
+                        border: product.is_active ? "2px solid #42bd3f" : "1px solid #e0e0e0",
+                        bgcolor: product.is_active ? "#f8fff8" : "white",
                         borderRadius: 2,
                         height: "100%",
+                        cursor: "pointer",
+                        "&:hover": { borderColor: "#42bd3f" },
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
                       }}
+                      onClick={() => handleToggleCustomProduct(product)}
                     >
                       <CardContent sx={{ p: 2 }}>
                         <Box display="flex" alignItems="center" justifyContent="space-between" gap={2} mb={2}>
@@ -801,10 +843,10 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                             {product.product_name}
                           </Typography>
                           <Box>
-                            <IconButton size="small" onClick={() => openEditDialog(product)}>
+                            <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEditDialog(product); }}>
                               <Edit fontSize="small" />
                             </IconButton>
-                            <IconButton size="small" color="error" onClick={() => handleDeleteCustomProduct(product.id)}>
+                            <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleDeleteCustomProduct(product.id); }}>
                               <Delete fontSize="small" />
                             </IconButton>
                           </Box>
@@ -818,6 +860,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                       </CardContent>
                     </Card>
                   </Grid>
+
                 ))}
               </Grid>
             </CardContent>
@@ -911,21 +954,21 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                   return null;
                 })}
               </Box>
-            ) : (
-              <Box mb={2} p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, textAlign: "center" }}>
-                <Typography variant="body2" sx={{ color: '#023c8f' }}>
-                  Please select a package above
-                </Typography>
-              </Box>
+            ) : data.selectedCustomProducts?.length > 0 ? null : (
+                <Box mb={2} p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, textAlign: "center" }}>
+                  <Typography variant="body2" sx={{ color: '#023c8f' }}>
+                    Please select a package above
+                  </Typography>
+                </Box>
             )}
 
             {/* Custom Products in Summary */}
-            {customProducts.length > 0 && (
+            {customProducts.filter((p)=>p.is_active===true).length > 0 && (
               <Box mb={2}>
                 <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#023c8f', mb: 1 }}>
                   Custom Products
                 </Typography>
-                {customProducts.map((product) => (
+                {customProducts.filter((p)=>p.is_active===true).map((product) => (
                   <Box key={product.id} mb={1}>
                     <Box display="flex" justifyContent="space-between">
                       <Box>
@@ -1053,7 +1096,16 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               <Button
                 variant="contained"
                 size="large"
-                disabled={Object.keys(selectedPackages).length === 0 || !termsAccepted || !isStepComplete(3)}
+                disabled={
+                  (
+                    Object.keys(data.selectedPackages).length === 0 &&
+                    (data.selectedServices?.length ?? 0) === 0 &&
+                    (data.selectedCustomProducts?.length ?? 0) === 0
+                  )
+                  || !termsAccepted
+                  || !isStepComplete(3)
+                }
+
                 sx={{
                   bgcolor: "#42bd3f",
                   "&:hover": { bgcolor: "#369932" },

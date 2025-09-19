@@ -1259,23 +1259,24 @@ const QuoteDetailsPage = () => {
                       const totalServicePrice =
                         service_selections?.reduce((sum, s) => sum + Number(s.final_total_price || 0), 0) || 0
 
-                      const subtotal = totalServicePrice
+                      const subtotal = totalServicePrice+Number(custom_service_total)
 
-                      const adjustment =
-                        subtotal < (globalPriceData?.base_price || 0) ? globalPriceData.base_price - subtotal : 0
 
-                      const final = subtotal + adjustment
+                      const final = formatPrice(final_total + custom_service_total); // numeric addition
+                      // const final = formatPrice(final_total) + formatPrice(custom_service_total)
+                      console.log(final, custom_service_total, typeof(final))
                       const taxRate = 0.0825 // 8.25% tax
                       const taxAmount = final * taxRate
-                      const finalWithTax = final + taxAmount
+                      const finalWithTax = Number(final) + taxAmount
+                      console.log(taxAmount, typeof(final))
 
                       return (
                         <>
                           {/* Adjustments */}
-                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          {/* <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Typography variant="body2">Adjustments</Typography>
                             <Typography variant="subtitle2">${formatPrice(adjustment)}</Typography>
-                          </Box>
+                          </Box> */}
 
                           {/* Tax */}
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
