@@ -39,6 +39,11 @@ import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQ
 import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { FreeMode, Navigation, Pagination, Virtual } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/free-mode';
+import 'swiper/css/pagination';
 
 const mapToSelectedService = (serviceSelection, index = 0) => ({
   id: serviceSelection.service_details?.id,
@@ -672,112 +677,121 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                       }
                     }}
                   >
-                    <Grid container spacing={3} alignItems="stretch">
-                      {selection.package_quotes.map((packageQuote) => (
-                        <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={packageQuote.id}>
-                          <Card
-                            variant="outlined"
-                            sx={{
-                              cursor: "pointer",
-                              border:
-                                selectedPackages[selection.id] === packageQuote.id
-                                  ? "2px solid #42bd3f"
-                                  : "1px solid #e0e0e0",
-                              bgcolor:
-                                selectedPackages[selection.id] === packageQuote.id
-                                  ? "#f8fff8"
-                                  : "white",
-                              "&:hover": { borderColor: "#42bd3f" },
-                              borderRadius: 3,
-                              height:"100%",
-                              width: "100%", // responsive height
-                              maxWidth: 300,
-                              minWidth: 180,
-                              minHeight: { xs: 180, sm: 200, md: 220 }, // responsive height
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "space-between",
-                            }}
-                            onClick={() => handlePackageSelect(selection.id, packageQuote)}
-                          >
-                            <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 },textAlign: "center", }}>
-                              {/* Header */}
-                              {/* <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}> */}
+                    <Swiper 
+                      modules={[FreeMode, Pagination]} 
+                      spaceBetween={30} 
+                      slidesPerView={"auto"}
+                      pagination={{
+                        clickable: true,
+                      }} 
+                      freeMode={true}
+                      style={{ margin:0 }}
+                    >
+                      {selection.package_quotes.map((packageQuote, index) => (
+                        <SwiperSlide key={packageQuote.id} style={{ width: "auto" }}>
+                            <Card
+                              variant="outlined"
+                              sx={{
+                                cursor: "pointer",
+                                border:
+                                  selectedPackages[selection.id] === packageQuote.id
+                                    ? "2px solid #42bd3f"
+                                    : "1px solid #e0e0e0",
+                                bgcolor:
+                                  selectedPackages[selection.id] === packageQuote.id
+                                    ? "#f8fff8"
+                                    : "white",
+                                "&:hover": { borderColor: "#42bd3f" },
+                                borderRadius: 3,
+                                height:"100%",
+                                width: "100%", // responsive height
+                                maxWidth: 300,
+                                minWidth: 180,
+                                minHeight: { xs: 180, sm: 200, md: 220 }, // responsive height
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                              }}
+                              onClick={() => handlePackageSelect(selection.id, packageQuote)}
+                            >
+                              <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 },textAlign: "center", }}>
+                                {/* Header */}
+                                {/* <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}> */}
+                                  <Typography
+                                    variant="h6"
+                                    fontWeight={700}
+                                    sx={{ fontSize: { xs: "1rem", sm: "1.2rem", md: "1.6rem" } }}
+                                  >
+                                    {packageQuote.package_name}
+                                  </Typography>
+                                  {/* <FormControlLabel
+                                    value={packageQuote.id}
+                                    control={
+                                      <Radio
+                                        sx={{
+                                          color: "#42bd3f",
+                                          "&.Mui-checked": { color: "#42bd3f" },
+                                        }}
+                                      />
+                                    }
+                                    label=""
+                                    sx={{ m: 0 }}
+                                  /> */}
+                                {/* </Box> */}
+
+                                {/* Price */}
                                 <Typography
-                                  variant="h6"
-                                  fontWeight={700}
-                                  sx={{ fontSize: { xs: "1rem", sm: "1.2rem", md: "1.6rem" } }}
+                                  variant="h4"
+                                  sx={{
+                                    color: "#42bd3f",
+                                    fontWeight: 700,
+                                    mb: 2,
+                                    fontSize: { xs: "1.5rem", sm: "1.8rem", md: "2rem" },
+                                  }}
                                 >
-                                  {packageQuote.package_name}
+                                  ${formatPrice(packageQuote.total_price)}
                                 </Typography>
-                                {/* <FormControlLabel
-                                  value={packageQuote.id}
-                                  control={
-                                    <Radio
-                                      sx={{
-                                        color: "#42bd3f",
-                                        "&.Mui-checked": { color: "#42bd3f" },
-                                      }}
-                                    />
-                                  }
-                                  label=""
-                                  sx={{ m: 0 }}
-                                /> */}
-                              {/* </Box> */}
 
-                              {/* Price */}
-                              <Typography
-                                variant="h4"
-                                sx={{
-                                  color: "#42bd3f",
-                                  fontWeight: 700,
-                                  mb: 2,
-                                  fontSize: { xs: "1.5rem", sm: "1.8rem", md: "2rem" },
-                                }}
-                              >
-                                ${formatPrice(Math.round(Number(packageQuote.total_price))).replace(/\.\d+$/, "")}
-                              </Typography>
-
-                              {/* Features List */}
-                              <Box textAlign="left">
-                                {[
-                                  ...(packageQuote.included_features_details || []).map((f) => ({
-                                    ...f,
-                                    included: true,
-                                  })),
-                                  ...(packageQuote.excluded_features_details || []).map((f) => ({
-                                    ...f,
-                                    included: false,
-                                  })),
-                                ].map((feature) => (
-                                  <Box key={feature.id} display="flex" alignItems="center" mb={0.8}>
-                                    {feature.included ? (
-                                      <Check sx={{ fontSize: { xs: 16, sm: 18 }, color: "#42bd3f", mr: 1 }} />
-                                    ) : (
-                                      <Close sx={{ fontSize: { xs: 16, sm: 18 }, color: "#9e9e9e", mr: 1 }} />
-                                    )}
-                                    <Typography
-                                      variant="body2"
-                                      sx={{
-                                        fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.9rem" },
-                                        color: feature.included ? "text.primary" : "text.disabled",
-                                        fontWeight: feature.included ? 500 : 400,
-                                        overflowWrap: "break-word",
-                                        wordWrap: "break-word",
-                                        flexShrink: 1,           // allow shrinking inside flex
-                                        minWidth: 0, 
-                                      }}
-                                    >
-                                      {feature.name}
-                                    </Typography>
-                                  </Box>
-                                ))}
-                              </Box>
-                            </CardContent>
-                          </Card>
-                        </Grid>
+                                {/* Features List */}
+                                <Box textAlign="left">
+                                  {[
+                                    ...(packageQuote.included_features_details || []).map((f) => ({
+                                      ...f,
+                                      included: true,
+                                    })),
+                                    ...(packageQuote.excluded_features_details || []).map((f) => ({
+                                      ...f,
+                                      included: false,
+                                    })),
+                                  ].map((feature) => (
+                                    <Box key={feature.id} display="flex" alignItems="center" mb={0.8}>
+                                      {feature.included ? (
+                                        <Check sx={{ fontSize: { xs: 16, sm: 18 }, color: "#42bd3f", mr: 1 }} />
+                                      ) : (
+                                        <Close sx={{ fontSize: { xs: 16, sm: 18 }, color: "#9e9e9e", mr: 1 }} />
+                                      )}
+                                      <Typography
+                                        variant="body2"
+                                        sx={{
+                                          fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.9rem" },
+                                          color: feature.included ? "text.primary" : "text.disabled",
+                                          fontWeight: feature.included ? 500 : 400,
+                                          overflowWrap: "break-word",
+                                          wordWrap: "break-word",
+                                          flexShrink: 1,           // allow shrinking inside flex
+                                          minWidth: 0, 
+                                        }}
+                                      >
+                                        {feature.name}
+                                      </Typography>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              </CardContent>
+                            </Card>
+                        </SwiperSlide>
                       ))}
-                    </Grid>
+                    </Swiper>
                   </RadioGroup>
                 </FormControl>
 
