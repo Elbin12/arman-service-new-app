@@ -1076,7 +1076,7 @@ const QuoteDetailsPage = () => {
               ))}
 
               {/* Custom Products/Services */}
-              {custom_products && custom_products.length > 0 && (
+              {custom_products.filter((c)=>c.is_active===true) && custom_products.filter((c)=>c.is_active===true).length > 0 && (
                 <Card>
                   <Box sx={{ p: 3, py: 2 }}>
                     <Stack direction="row" alignItems="center" spacing={2}>
@@ -1088,14 +1088,14 @@ const QuoteDetailsPage = () => {
                           Custom Services
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {custom_products.length} custom service{custom_products.length > 1 ? "s" : ""} added
+                          {custom_products.filter((c)=>c.is_active===true).length} custom service{custom_products.filter((c)=>c.is_active===true).length > 1 ? "s" : ""} added
                         </Typography>
                       </Box>
                     </Stack>
                   </Box>
                   <Divider />
                   <Box sx={{ overflow: "hidden" }}>
-                    {custom_products.map((product, index) => (
+                    {custom_products.filter((c)=>c.is_active===true).map((product, index) => (
                       <Box
                         key={product.id}
                         sx={{
@@ -1103,7 +1103,7 @@ const QuoteDetailsPage = () => {
                           alignItems: "center",
                           justifyContent: "space-between",
                           p: 3,
-                          borderBottom: index < custom_products.length - 1 ? "1px solid #f0f0f0" : "none",
+                          borderBottom: index < custom_products.filter((c)=>c.is_active===true).length - 1 ? "1px solid #f0f0f0" : "none",
                           "&:hover": {
                             bgcolor: "#f8f9fa",
                           },
@@ -1309,7 +1309,7 @@ const QuoteDetailsPage = () => {
                             </Typography>
                             <div className="flex flex-col">
                               <Typography variant="h5" fontWeight="500" color="#42bd3f">
-                                ${formatPrice(finalWithTax)}
+                                ${Math.round(finalWithTax)}
                               </Typography>
                               <Typography variant="caption" color="text.secondary" align="center">
                                 Tax included

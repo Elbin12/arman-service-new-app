@@ -705,7 +705,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                 borderRadius: 3,
                                 height:"100%",
                                 width: "100%", // responsive height
-                                maxWidth: 300,
+                                maxWidth: 280,
                                 minWidth: 180,
                                 minHeight: { xs: 180, sm: 200, md: 220 }, // responsive height
                                 display: "flex",
@@ -775,7 +775,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                         sx={{
                                           fontSize: { xs: "0.75rem", sm: "0.85rem", md: "0.9rem" },
                                           color: feature.included ? "text.primary" : "text.disabled",
-                                          fontWeight: feature.included ? 500 : 400,
+                                          fontWeight:500,
                                           overflowWrap: "break-word",
                                           wordWrap: "break-word",
                                           flexShrink: 1,           // allow shrinking inside flex
@@ -1013,7 +1013,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
             <Box display="flex" justifyContent="space-between" mb={2}>
               <Typography variant="h6" fontWeight={700}>
-                Total
+                Subtotal
               </Typography>
 
               <Box textAlign="right">
