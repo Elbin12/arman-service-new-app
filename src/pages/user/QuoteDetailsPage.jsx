@@ -669,24 +669,23 @@ const QuoteDetailsPage = () => {
           mx="auto"
           px={{ xs: 2, md: 4 }}
           display="flex"
-          flexDirection={{ xs: "column", md: "row" }}
           justifyContent="space-between"
-          alignItems={{ xs: "flex-start", md: "center" }}
+          alignItems={{ xs: "center", md: "center" }}
           gap={{ xs: 2, md: 4 }}
         >
           {/* Left side - Logo & Quote Info */}
-          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+          <Box display="flex" alignItems={"center"} flexDirection="row" gap={{xs:1, sm:2}}>
             <Box
               component="img"
               src="https://storage.googleapis.com/msgsndr/b8qvo7VooP3JD3dIZU42/media/683efc8fd5817643ff8194f0.jpeg"
               alt="Company Logo"
               sx={{
-                height: { xs: 40, sm: 70 },
+                height: { xs: 55, sm: 75 },
                 width: "auto",
                 borderRadius: 1,
               }}
             />
-            <Box>
+            <Box display="flex" alignItems="start" flexDirection="column" gap={0} flexWrap="wrap">
               <Typography variant="h4" color="#023c8f" fontWeight="600"
                 sx={{
                   fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" }, // xs=h6-ish, sm=h5, md=h4
@@ -695,21 +694,22 @@ const QuoteDetailsPage = () => {
                 Quote Details
               </Typography>
               <Box display="flex" flexWrap="wrap" alignItems="center" gap={1} mt={0.5}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{fontSize:{ xs: "0.6rem", sm: "0.8rem", md: "0.9rem"}}}>
                   ID: {quote.id}
                 </Typography>
-                <Chip
+                {/* <Chip
                   label={status?.charAt(0).toUpperCase() + status?.slice(1)}
                   size="small"
                   sx={{
                     fontWeight: 600,
+                    fontSize:{ xs: "0.7rem", sm: "0.8rem", md: "0.8rem"},
                     borderRadius: 1,
                     ...(statusStyles[status?.toLowerCase()] || statusStyles["draft"]),
                   }}
                 />
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{fontSize:{ xs: "0.6rem", sm: "0.8rem", md: "0.9rem"}}}>
                   Created: {new Date(created_at).toLocaleDateString()}
-                </Typography>
+                </Typography> */}
               </Box>
             </Box>
           </Box>
@@ -720,7 +720,7 @@ const QuoteDetailsPage = () => {
             flexDirection={{  xs: "row" }}
             alignItems={{ xs: "stretch", sm: "center" }}
             gap={2}
-            width={{ xs: "100%", sm: "auto" }}
+            width={{ sm: "auto" }}
           >
             <Button
               variant="outlined"
@@ -739,7 +739,9 @@ const QuoteDetailsPage = () => {
                 )
               }
               disabled={isGeneratingPDF}
-              startIcon={isGeneratingPDF ? <CircularProgress size={16} /> : <PictureAsPdf />}
+              startIcon={
+                isGeneratingPDF ? <CircularProgress size={16} /> : <PictureAsPdf />
+              }
               sx={{
                 borderColor: "#42bd3f",
                 color: "#42bd3f",
@@ -747,10 +749,18 @@ const QuoteDetailsPage = () => {
                   bgcolor: "rgba(66, 189, 63, 0.04)",
                   borderColor: "#42bd3f",
                 },
+                '& .pdf-btn-label': {
+                  display: 'none',
+                  '@media (min-width:600px)': {
+                    display: 'inline',
+                  },
+                },
               }}
-              fullWidth={{ xs: true, sm: false }}
+              fullWidth={{ xs: false, sm: true }}
             >
-              {isGeneratingPDF ? "Generating..." : "Download PDF"}
+              <span className="pdf-btn-label">
+                {isGeneratingPDF ? "Generating..." : "Download PDF"}
+              </span>
             </Button>
 
             {window.self !== window.top && (
@@ -943,7 +953,7 @@ const QuoteDetailsPage = () => {
                   {/* Service Header */}
                   <Box
                     sx={{
-                      px: 3,
+                      px: {xs:2, md:3},
                       py: 0.5,
                       backgroundColor: "#023c8f",
                       color: "white",
@@ -953,11 +963,14 @@ const QuoteDetailsPage = () => {
                     onClick={() => toggleServiceExpansion(selection.id)}
                   >
                     <Box display="flex" alignItems="center" justifyContent="space-between">
-                      <Box>
-                        <Typography variant="h6" fontWeight={600} sx={{ color: "white" }}>
-                          {selection.service_details?.name}
-                        </Typography>
-                      </Box>
+                      <Typography fontWeight={600}
+                        sx={{ color: 'white', fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.5rem"},flex: 1,
+                          whiteSpace: "normal",
+                          wordBreak: "break-word"
+                        }}
+                      >
+                        {selection.service_details?.name}
+                      </Typography>
                       <IconButton sx={{ color: "white" }}>
                         {expandedServices[selection.id] ? <ExpandLess /> : <ExpandMore />}
                       </IconButton>
@@ -966,7 +979,7 @@ const QuoteDetailsPage = () => {
 
                   {/* Collapsible Content */}
                   <Collapse in={expandedServices[selection.id]} timeout="auto" unmountOnExit>
-                    <Box sx={{ px: 3, py: 1 }}>
+                    <Box sx={{ px: {xs:1.5, md:3}, py: 1 }}>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                         {selection.service_details?.description}
                       </Typography>
@@ -1050,21 +1063,23 @@ const QuoteDetailsPage = () => {
                       {/* Question Responses */}
                       {selection.question_responses?.length > 0 && (
                         <Box mt={2}>
-                          <Typography variant="subtitle1" fontWeight={600} sx={{ color: "#023c8f", mb: 1 }}>
-                            Question Responses
+                          <Typography variant="subtitle1" fontWeight={600} sx={{ color: "#023c8f", fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.3rem"} }}>
+                            Your Responses
                           </Typography>
                           <Box sx={{ bgcolor: "#f8f9fa", borderRadius: 1, p: 1 }}>
                             {selection.question_responses.map((response, index) => (
-                              <Box key={response.id} sx={{ display: 'flex', mb: 0.5, alignItems: 'flex-start' }}>
-                                <Typography variant="body2" sx={{ color: "#023c8f", fontWeight: 600, mr: 1, minWidth: '25px', fontSize: '0.8125rem' }}>
-                                  Q{index + 1}:
-                                </Typography>
-                                <Typography variant="body2" sx={{ flex: 1, mr: 1, fontSize: '0.8125rem' }}>
-                                  {response.question_text}
-                                </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content', fontSize: '0.8125rem' }}>
-                                  {renderQuestionResponse(response)}
-                                </Typography>
+                              <Box key={response.id} sx={{ display: 'flex', mb: 0.5, alignItems: "flex-start"}}>
+                                  <Typography variant="body1" sx={{ color: "#023c8f", fontWeight: 600, mr: 1, minWidth: '25px', fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" }}}>
+                                    Q{index + 1}:
+                                  </Typography>
+                                <Box >
+                                  <Typography variant="body1" sx={{ flex: 1, mr: 1, fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" }}}>
+                                    {response.question_text}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content', pl:1, fontSize: { xs: "0.75rem", sm: "0.85rem", md: "1rem" }}}>
+                                    {renderQuestionResponse(response)}
+                                  </Typography>
+                                </Box>
                               </Box>
                             ))}
                           </Box>
@@ -1309,7 +1324,7 @@ const QuoteDetailsPage = () => {
                             </Typography>
                             <div className="flex flex-col">
                               <Typography variant="h5" fontWeight="500" color="#42bd3f">
-                                ${Math.round(finalWithTax)}
+                                ${finalWithTax.toFixed(2)}
                               </Typography>
                               <Typography variant="caption" color="text.secondary" align="center">
                                 Tax included
@@ -1321,7 +1336,8 @@ const QuoteDetailsPage = () => {
                     })()}
 
                     <Divider />
-                    <Typography variant="caption" color="text.secondary" align="center">
+                    <Box display={"flex"} flexDirection={"column"} alignItems={"center"} gap={1}>
+                      <Typography variant="caption" color="text.secondary" align="center">
                       Quote created on{" "}
                       {new Date(created_at).toLocaleString(undefined, {
                         year: "numeric",
@@ -1331,6 +1347,21 @@ const QuoteDetailsPage = () => {
                         minute: "2-digit",
                       })}
                     </Typography>
+                    <Typography variant="caption" color="text.secondary" align="center"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize:{ xs: "0.7rem", sm: "0.8rem", md: "0.8rem"},
+                        borderRadius: 0.3,
+                        bgcolor:"#D9FFD9",
+                        color:"success.dark",
+                        width:"fit-content",
+                        px:3
+                      }}
+                    >
+                      Status:{" "}
+                      {status?.charAt(0).toUpperCase() + status?.slice(1)}
+                    </Typography>
+                    </Box>
                   </Box>
                 </CardContent>
               </Paper>

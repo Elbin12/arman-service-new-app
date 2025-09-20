@@ -140,7 +140,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
     if (!quoteData) return;
 
     const totalSelectedPrice = calculateTotalSelectedPrice(selectedPackages, quoteData);
-    const customProductsTotal = calculateCustomProductsTotal(customProducts);
+    const customProductsTotal = calculateCustomProductsTotal(customProducts.filter((p)=>p.is_active===true));
     const surchargeAmount = quoteData.quote_surcharge_applicable
       ? parseFloat(quoteData.location_details?.trip_surcharge || 0)
       : 0;
@@ -439,7 +439,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
   return (
     <Box>
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{p:"0rem"}}>
         {/* Quote Header */}
         <Box mb={4}>
           <Box display="flex" justifyContent="center">
@@ -453,7 +453,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               }}
             />
           </Box>
-          <Typography variant="h4" gutterBottom fontWeight={300} sx={{ color: '#023c8f', textAlign: 'center' }}>
+          <Typography variant="h4" gutterBottom fontWeight={300} sx={{ color: '#023c8f', textAlign: 'center', fontSize:{ xs: "1.8rem", sm: "1.9rem", md: "2.2rem"} }}>
             Quote Summary
           </Typography>
           {window.self !== window.top && (
@@ -479,13 +479,13 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
             </Box>
           )}
           <Box display="flex" gap={2} flexWrap="wrap" alignItems="center" justifyContent="center">
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="text.secondary" sx={{fontSize:{ xs: "0.8rem", sm: "0.9rem", md: "1rem"}}}>
               Quote #{quoteData.id}
             </Typography>
             <Chip
               label={quoteData.status.replace("_", " ").toUpperCase()}
               size="small"
-              sx={{ bgcolor: "#d9edf7", color: "#023c8f", fontWeight: 600 }}
+              sx={{ bgcolor: "#d9edf7", color: "#023c8f", fontWeight: 600, fontSize:{ xs: "0.7rem", sm: "0.8rem", md: "0.8rem"} }}
             />
             <Typography variant="body2" color="text.secondary">
               {new Date(quoteData.created_at).toLocaleDateString()}
@@ -494,7 +494,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
         </Box>
 
         {/* Customer Info */}
-        <Card sx={{ mb: 3 }}>
+        <Card sx={{ mb: 2 }}>
           {/* ✅ Powered by text in red-marked portion */}
           <Grid item xs={12} sm={6} paddingRight={2} textAlign="right">
             <Typography
@@ -516,7 +516,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
               </a>
             </Typography>
           </Grid>
-          <CardContent sx={{ px: 3, py:0 }}>
+          <CardContent sx={{ px: {xs:2, md:3}, py: 0.5 }}>
             <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f', fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.5rem"} }}>
               Customer Information
             </Typography>
@@ -563,7 +563,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
             {/* Service Header */}
             <Box
               sx={{
-                px: 3,
+                px: {xs:2, md:3},
                 py: 0.5,
                 backgroundColor: '#023c8f',
                 color: 'white',
@@ -606,7 +606,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
 
             {/* Collapsible Content */}
             <Collapse in={expandedServices[selection.id]} timeout="auto" unmountOnExit>
-              <Box sx={{ px: 3, py: 1 }}>
+              <Box sx={{ px: {xs:1.5, md:3}, py: 1 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontSize: { xs: "0.75rem", sm: "0.875rem", md:'1rem' } }}>
                   {selection.service_details.description}
                 </Typography>
@@ -668,7 +668,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                   Select Package
                 </Typography>
                 <FormControl component="fieldset" fullWidth>
-                  <RadioGroup
+                  <Box
                     value={selectedPackages[selection.id] || ""}
                     onChange={(e) => {
                       const packageQuote = selection.package_quotes.find((p) => p.id === e.target.value);
@@ -679,13 +679,18 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                   >
                     <Swiper 
                       modules={[FreeMode, Pagination]} 
-                      spaceBetween={30} 
+                      spaceBetween={10} 
                       slidesPerView={"auto"}
                       pagination={{
                         clickable: true,
                       }} 
                       freeMode={true}
                       style={{ margin:0 }}
+                      breakpoints={{
+                        768: {
+                          spaceBetween: 20,
+                        },
+                      }}
                     >
                       {selection.package_quotes.map((packageQuote, index) => (
                         <SwiperSlide key={packageQuote.id} style={{ width: "auto" }}>
@@ -704,7 +709,8 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                                 "&:hover": { borderColor: "#42bd3f" },
                                 borderRadius: 3,
                                 height:"100%",
-                                width: "100%", // responsive height
+                                width: "fit-content", // responsive height
+                                flexShrink: 0,    
                                 maxWidth: 280,
                                 minWidth: 180,
                                 minHeight: { xs: 180, sm: 200, md: 220 }, // responsive height
@@ -792,27 +798,29 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                         </SwiperSlide>
                       ))}
                     </Swiper>
-                  </RadioGroup>
+                  </Box>
                 </FormControl>
 
                 {/* Question Responses */}
                 {selection.question_responses?.length > 0 && (
                   <Box mt={2}>
-                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: "#023c8f", mb: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ color: "#023c8f", fontSize:{ xs: "1rem", sm: "1.2rem", md: "1.3rem"} }}>
                       Your Responses
                     </Typography>
                     <Box sx={{ bgcolor: "#f8f9fa", borderRadius: 1, p: 1 }}>
                       {selection.question_responses.map((response, index) => (
-                        <Box key={response.id} sx={{ display: 'flex', mb: 0.5, alignItems: 'center' }}>
-                          <Typography variant="body1" sx={{ color: "#023c8f", fontWeight: 600, mr: 1, minWidth: '25px', }}>
-                            Q{index + 1}:
-                          </Typography>
-                          <Typography variant="body1" sx={{ flex: 1, mr: 1, }}>
-                            {response.question_text}
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content', }}>
-                            {renderQuestionResponse(response)}
-                          </Typography>
+                        <Box key={response.id} sx={{ display: 'flex', mb: 0.5, alignItems: "flex-start"}}>
+                            <Typography variant="body1" sx={{ color: "#023c8f", fontWeight: 600, mr: 1, minWidth: '25px', fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" }}}>
+                              Q{index + 1}:
+                            </Typography>
+                          <Box >
+                            <Typography variant="body1" sx={{ flex: 1, mr: 1, fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem" }}}>
+                              {response.question_text}
+                            </Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 'fit-content', pl:1, fontSize: { xs: "0.75rem", sm: "0.85rem", md: "1rem" }}}>
+                              {renderQuestionResponse(response)}
+                            </Typography>
+                          </Box>
                         </Box>
                       ))}
                     </Box>

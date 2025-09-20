@@ -1,6 +1,5 @@
 "use client"
 import { useState, useCallback, useEffect, useRef, useLayoutEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, Circle, Loader2 } from "lucide-react"
@@ -15,7 +14,7 @@ import MultiServiceSelectionForm from "./forms/MultiServiceSelectionForm"
 import { useCreateQuestionResponsesMutation, useCreateServiceToSubmissionMutation, useCreateSubmissionMutation, useGetQuoteDetailsQuery, useSubmitQuoteMutation, useUpdateSubmissionMutation } from "../../store/api/user/quoteApi"
 import { useDispatch } from "react-redux"
 import { resetBookingData } from "../../store/slices/bookingSlice"
-import { Box, Typography } from "@mui/material"
+import { Box, Typography,Card, CardContent } from "@mui/material"
 
 import SignatureCanvas from "react-signature-canvas";
 import { AdminPanelSettings } from "@mui/icons-material"
@@ -662,7 +661,7 @@ export const BookingWizard = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-8">
         {/* Progress Section */}
         <Card className="mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardContent className="p-6">
@@ -706,7 +705,7 @@ export const BookingWizard = () => {
 
         {/* Main Content */}
         <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
-          <CardContent className="p-8">
+          <CardContent sx={{ p: { xs: '0.4rem', sm: '1.5rem', md: '2rem' } }}>
             <div className="min-h-[500px]">{getStepContent(activeStep)}</div>
 
             {/* Navigation Buttons */}
