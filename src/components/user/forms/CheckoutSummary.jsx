@@ -38,7 +38,7 @@ import { useCalculatePriceMutation } from '../../../store/api/user/priceApi';
 import { useCreateCustomProductMutation, useDeleteCustomProductMutation, useGetQuoteDetailsQuery, useUpdateCustomProductMutation, useDeleteServiceMutation, useGetGlobalPriceQuery } from '../../../store/api/user/quoteApi';
 import { useRef } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { FreeMode, Navigation, Pagination, Virtual } from 'swiper/modules';
 import 'swiper/css';
@@ -1111,7 +1111,13 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                     }}
                   />
                 }
-                label={<Typography variant="body2">I agree to the Terms & Conditions</Typography>}
+                label={
+                  <Typography variant="body2">I agree to the{" "}
+                    <Link to="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#023c8f", textDecoration: "underline" }}>
+                      Terms & Conditions
+                    </Link>
+                  </Typography>
+                }
                 sx={{ flex: 1 }}
               />
 

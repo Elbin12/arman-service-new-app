@@ -22,6 +22,7 @@ import AdminProtectedRoute from './pages/AdminProtectedRoute.jsx';
 import QuoteDetailsPage from './pages/user/QuoteDetailsPage.jsx';
 import HouseSizeInfo from './components/admin/HouseSizeInfo.jsx';
 import { PersistGate } from 'redux-persist/integration/react';
+import TermsAndConditions from './pages/user/TermsAndConditions.jsx';
 
 // Create Material-UI theme that integrates with our design system
 const theme = createTheme({
@@ -73,6 +74,7 @@ function App() {
                   <Route path="/" element={<Navigate to="/booking" replace />} />
                   <Route path="/booking" element={<BookingWizard />} />
                   <Route path="/quote/details/:id" element={<QuoteDetailsPage />} />
+                  <Route path="/terms" element={<TermsAndConditions />} />
                   
                   {/* Admin Login Route */}
                   <Route path="/admin/login" element={<UserLogin />} />

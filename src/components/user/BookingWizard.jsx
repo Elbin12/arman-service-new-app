@@ -185,6 +185,9 @@ export const BookingWizard = () => {
 
   useLayoutEffect(() => {
     if (isSuccess && submissionData) {
+      if (submissionData?.status==="submitted"){
+        navigate(`/quote/details/${submissionData?.id}`)
+      }
       setActiveStep(3);
     }
   }, [isSuccess, submissionData]);
