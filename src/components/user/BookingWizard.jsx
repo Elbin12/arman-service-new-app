@@ -11,7 +11,7 @@ import PackageSelectionForm from "./forms/PackageSelectionForm"
 import QuestionsForm from "./forms/QuestionsForm"
 import CheckoutSummary from "./forms/CheckoutSummary"
 import MultiServiceSelectionForm from "./forms/MultiServiceSelectionForm"
-import { useCreateQuestionResponsesMutation, useCreateServiceToSubmissionMutation, useCreateSubmissionMutation, useGetQuoteDetailsQuery, useSubmitQuoteMutation, useUpdateSubmissionMutation } from "../../store/api/user/quoteApi"
+import { useCreateQuestionResponsesMutation, useCreateServiceToSubmissionMutation, useCreateSubmissionMutation, useGetQuoteDetailsQuery, useSubmitOnlyCustomProductsMutation, useSubmitQuoteMutation, useUpdateSubmissionMutation } from "../../store/api/user/quoteApi"
 import { useDispatch } from "react-redux"
 import { resetBookingData } from "../../store/slices/bookingSlice"
 import { Box, Typography,Card, CardContent } from "@mui/material"
@@ -201,6 +201,8 @@ export const BookingWizard = () => {
   const [updateSubmission, { isLoading: updating }] = useUpdateSubmissionMutation()
   const [createQuote, { isLoading: creatingQuote }] = useCreateQuoteMutation()
   const [createQuestionResponses, { isLoading: submittingResponses }] = useCreateQuestionResponsesMutation()
+  const [submitOnlyCustomProducts] = useSubmitOnlyCustomProductsMutation()
+
   const [addServiceToSubmission] = useCreateServiceToSubmissionMutation();
   
   const isSavingContact = creating || updating
@@ -385,6 +387,7 @@ export const BookingWizard = () => {
 
         if (hasCustomProducts && !hasServices) {
           // Only custom products → jump to step 3
+          const result = await submitOnlyCustomProducts(bookingData.submission_id).unwrap();
           setActiveStep(3);
         } else {
           // Either services only OR both services + custom products → normal flow
@@ -712,15 +715,44 @@ export const BookingWizard = () => {
             <div className="min-h-[500px]">{getStepContent(activeStep)}</div>
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between items-center pt-8 mt-8 border-t border-gray-200">
+            <div className="grid grid-cols-3 items-center pt-8 mt-8 border-t border-gray-200">
               <Button
                 variant="outline"
                 onClick={handleBack}
                 disabled={activeStep === 0}
-                className="px-6 bg-transparent"
+                className="px-6 bg-transparent justify-self-start"
               >
                 Back
               </Button>
+
+              <div className="justify-self-center">
+                <Typography
+                  variant="caption"
+                  display={"flex"}
+                  sx={{ fontSize: {xs:"0.5rem", md:"1rem"}, color: "text.secondary", alignItems: "center"}}
+                >
+                  Powered by{" "}
+                  <a
+                    href="https://theservicepilot.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "#023c8f",
+                      textDecoration: "none",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <img
+                      src="/servicepilot.jpg"
+                      alt="Company Logo"
+                      className="object-contain max-h-[20px] md:max-h-[40px]"
+                      style={{
+                        objectFit: "contain",
+                      }}
+                    />
+                  </a>
+                </Typography>
+              </div>
 
               <div className="flex items-center justify-end w-full gap-3">
                 {activeStep !== steps.length - 1 &&

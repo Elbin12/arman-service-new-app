@@ -114,10 +114,17 @@ export const quoteApi = createApi({
     getGlobalPrice: builder.query({
         query: ()=>({url:'global-base-price/'}),
     }),
+    submitOnlyCustomProducts: builder.mutation({
+      query: (submissionId) => ({
+        url: `${submissionId}/customservices/responses/`,
+        method: 'POST',
+      }),
+    }),
   }),
 });
 
 export const { useGetInitialDataQuery, useGetServiceQuestionsQuery, useCreateSubmissionMutation, useUpdateSubmissionMutation, useCreateQuestionResponsesMutation,
   useCreateServiceToSubmissionMutation,   useGetQuoteDetailsQuery,useSubmitQuoteMutation, useGetAddressesByContactQuery, useSearchContactsQuery, useCreateCustomProductMutation,
-  useUpdateCustomProductMutation, useDeleteCustomProductMutation, useGetServicesQuery, useCreateScheduleMutation, useDeleteServiceMutation, useGetGlobalPriceQuery
+  useUpdateCustomProductMutation, useDeleteCustomProductMutation, useGetServicesQuery, useCreateScheduleMutation, useDeleteServiceMutation, useGetGlobalPriceQuery,
+  useSubmitOnlyCustomProductsMutation
  } = quoteApi;
