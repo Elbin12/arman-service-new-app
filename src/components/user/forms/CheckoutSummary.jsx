@@ -525,7 +525,7 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
                 <Typography variant="caption" color="text.secondary">
                   Name
                 </Typography>
-                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>{quoteData.contact?.first_name}</Typography>
+                <Typography variant="body1" sx={{fontSize:{ xs: ".8rem", sm: "1rem"}}}>{quoteData.contact?.first_name} {quoteData?.contact?.last_name}</Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="caption" color="text.secondary">
@@ -948,7 +948,14 @@ export const CheckoutSummary = ({ data, onUpdate, termsAccepted, setTermsAccepte
             <Typography variant="h6" gutterBottom fontWeight={600} sx={{ color: '#023c8f' }}>
               Order Summary
             </Typography>
-
+            {quoteData?.service_selections?.length > 0 &&
+            Object.keys(selectedPackages).length !== quoteData.service_selections.length && (
+              <Box mb={2} p={2} sx={{ bgcolor: "#d9edf7", borderRadius: 1, textAlign: "center" }}>
+                <Typography variant="body2" sx={{ color: '#023c8f' }}>
+                  Almost there! Please select packages for all services you want to include, or remove any you don’t need to finalize your quote.
+                </Typography>
+              </Box>
+            )}
             {Object.keys(selectedPackages).length > 0 ? (
               <Box mb={2}>
                 {Object.entries(selectedPackages).map(([serviceId, packageId]) => {
