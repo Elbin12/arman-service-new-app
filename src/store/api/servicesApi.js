@@ -25,7 +25,7 @@ export const servicesApi = createApi({
     updateService: builder.mutation({
       query: ({ id, ...serviceData }) => ({
         url: `${id}/`,
-        method: 'PUT',
+        method: 'PATCH',
         data: serviceData,
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'Service', id }],

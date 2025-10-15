@@ -27,10 +27,10 @@ import {
   Add,
   Edit,
   Delete,
-  Visibility,
+  DragIndicator,
 } from '@mui/icons-material';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { ServiceCreationWizard } from '../../components/admin/services/ServiceCreationWizard.jsx';
-// Temporarily removed RTK Query imports
 import { 
   useGetServicesQuery, 
   useCreateServiceMutation, 
@@ -67,7 +67,6 @@ const ServicesManagement = () => {
     pricing: {},
   });
 
-  // Temporarily disable RTK Query to test basic Redux
   const { data: servicesData = [], isLoading, error } = useGetServicesQuery();
   const { data: basePriceData, isLoading: basePriceLoading } = useGetGlobalBasePriceQuery();
 
@@ -77,16 +76,15 @@ const ServicesManagement = () => {
   const [basePrice, setBasePrice] = useState('');
   const [originalBasePrice, setOriginalBasePrice] = useState('');
 
-  const services = servicesData.results
+  const services = servicesData.results;
   console.log(services, 'servicesssssssss');
   
   const [createService] = useCreateServiceMutation();
   const [updateService] = useUpdateServiceMutation();
   const [deleteService] = useDeleteServiceMutation();
-  
-  // const services = [];
-  // const isLoading = false;
-  // const error = null;
+
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [orderedServices, setOrderedServices] = useState([]);
 
   useEffect(() => {
     if (basePriceData) {
@@ -94,6 +92,19 @@ const ServicesManagement = () => {
       setOriginalBasePrice(basePriceData.base_price);
     }
   }, [basePriceData]);
+
+  // Update ordered services when data changes
+  useEffect(() => {
+    if (services && services.length > 0) {
+      // Sort by order if available, otherwise keep original order
+      const sorted = [...services].sort((a, b) => {
+        const orderA = a.order ?? 999999;
+        const orderB = b.order ?? 999999;
+        return orderA - orderB;
+      });
+      setOrderedServices(sorted);
+    }
+  }, [services]);
 
   const handleSaveBasePrice = async () => {
     try {
@@ -109,28 +120,28 @@ const ServicesManagement = () => {
   };
 
   const handleCreateService = async (serviceData) => {
-      handleCloseWizard();
+    handleCloseWizard();
   };
 
-const handleEditService = async (service) => {
-  console.log(service, 'service from handleEditService');
-  
-  try {
-    const fullServiceData = await dispatch(
-      servicesApi.endpoints.getServiceById.initiate(service.id, { forceRefetch: true })
-    ).unwrap();
-
-    console.log(fullServiceData, 'from handleEditService');
-
-    dispatch(setEditingService(fullServiceData));
-    dispatch(setWizardOpen(true));
-  } catch (error) {
-    console.error('Failed to fetch service details:', error);
+  const handleEditService = async (service) => {
+    console.log(service, 'service from handleEditService');
     dispatch(setEditingService(service));
     dispatch(setWizardOpen(true));
-  }
-};
+    setLoadingEdit(true);
+    
+    try {
+      const fullServiceData = await dispatch(
+        servicesApi.endpoints.getServiceById.initiate(service.id, { forceRefetch: true })
+      ).unwrap();
 
+      console.log(fullServiceData, 'from handleEditService');
+      dispatch(setEditingService(fullServiceData));
+    } catch (error) {
+      console.error('Failed to fetch service details:', error);
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
 
   const handleDeleteConfirm = (service) => {
     dispatch(setServiceToDelete(service));
@@ -153,6 +164,54 @@ const handleEditService = async (service) => {
     dispatch(clearEditingService());
     setActiveStep(0);
     setServiceData(null);
+  };
+
+  const handleDragEnd = async (result) => {
+    if (!result.destination) {
+      return;
+    }
+
+    const sourceIndex = result.source.index;
+    const destinationIndex = result.destination.index;
+
+    if (sourceIndex === destinationIndex) {
+      return;
+    }
+
+    // Reorder the services array
+    const reorderedServices = Array.from(orderedServices);
+    const [movedService] = reorderedServices.splice(sourceIndex, 1);
+    reorderedServices.splice(destinationIndex, 0, movedService);
+
+    // Optimistically update UI
+    setOrderedServices(reorderedServices);
+
+    // Update the order on the backend for all affected services
+    try {
+      // Create update promises for all affected services
+      const updatePromises = reorderedServices.map((service, index) => {
+        const newOrder = index + 1; // 1-based ordering
+        
+        // Only update if order actually changed
+        if (service.order !== newOrder) {
+          return updateService({
+            id: service.id,
+            order: newOrder,
+          }).unwrap();
+        }
+        return Promise.resolve();
+      });
+
+      // Wait for all updates to complete
+      await Promise.all(updatePromises);
+      
+      console.log(`Service ${movedService.name} moved to position ${destinationIndex + 1}`);
+      console.log('All services reordered successfully');
+    } catch (error) {
+      console.error('Failed to update service order:', error);
+      // Revert on error
+      setOrderedServices(orderedServices);
+    }
   };
 
   if (isLoading) {
@@ -181,7 +240,7 @@ const handleEditService = async (service) => {
             Services Management
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage your service offerings, packages, and pricing
+            Manage your service offerings, packages, and pricing. Drag to reorder.
           </Typography>
         </Box>
         <Button
@@ -221,6 +280,7 @@ const handleEditService = async (service) => {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell width="40px"></TableCell>
                   <TableCell>Service Name</TableCell>
                   <TableCell>Description</TableCell>
                   <TableCell>Questions</TableCell>
@@ -229,57 +289,95 @@ const handleEditService = async (service) => {
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody>
-                {services.map((service) => (
-                  <TableRow key={service.id}>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        {service.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {service.description && service.description.length > 50 
-                          ? `${service.description.substring(0, 50)}...`
-                          : service.description
-                        }
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={`${service?.questions_count} questions`} 
-                        size="small" 
-                        color="secondary"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={service.is_active ? 'active' : 'inactive'} 
-                        size="small"
-                        color={service.is_active ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>{new Date(service.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell align="right">
-                      <IconButton 
-                        size="small" 
-                        color="primary"
-                        onClick={() => handleEditService(service)}
-                      >
-                        <Edit />
-                      </IconButton>
-                      <IconButton 
-                        size="small" 
-                        color="error"
-                        onClick={() => handleDeleteConfirm(service)}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="services-table">
+                  {(provided, snapshot) => (
+                    <TableBody
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                    >
+                      {orderedServices.map((service, index) => (
+                        <Draggable
+                          key={service.id}
+                          draggableId={service.id.toString()}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <TableRow
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              sx={{
+                                backgroundColor: snapshot.isDragging ? 'action.hover' : 'inherit',
+                                '&:hover': {
+                                  backgroundColor: 'action.hover',
+                                },
+                              }}
+                            >
+                              <TableCell {...provided.dragHandleProps}>
+                                <DragIndicator 
+                                  sx={{ 
+                                    cursor: 'grab',
+                                    color: 'text.secondary',
+                                    '&:active': {
+                                      cursor: 'grabbing',
+                                    }
+                                  }} 
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  {service.name}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="text.secondary">
+                                  {service.description && service.description.length > 50 
+                                    ? `${service.description.substring(0, 50)}...`
+                                    : service.description
+                                  }
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={`${service?.questions_count} questions`} 
+                                  size="small" 
+                                  color="secondary"
+                                  variant="outlined"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={service.is_active ? 'active' : 'inactive'} 
+                                  size="small"
+                                  color={service.is_active ? 'success' : 'default'}
+                                />
+                              </TableCell>
+                              <TableCell>{new Date(service.created_at).toLocaleDateString()}</TableCell>
+                              <TableCell align="right">
+                                <IconButton 
+                                  size="small" 
+                                  color="primary"
+                                  onClick={() => handleEditService(service)}
+                                >
+                                  <Edit />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleDeleteConfirm(service)}
+                                >
+                                  <Delete />
+                                </IconButton>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </TableBody>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </Table>
           </TableContainer>
         </CardContent>
@@ -294,6 +392,7 @@ const handleEditService = async (service) => {
         setServiceData={setServiceData}
         setActiveStep={setActiveStep}
         activeStep={activeStep}
+        loadingEdit={loadingEdit}
       />
 
       {/* Delete Confirmation Dialog */}
