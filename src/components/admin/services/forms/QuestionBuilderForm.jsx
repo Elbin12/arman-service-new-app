@@ -42,6 +42,8 @@ import {
   useUpdateQuestionSubQuestionMutation,
 } from "../../../../store/api/questionSubQuestionsApi"
 
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+
 const QUESTION_TYPES = [
   { value: "describe", label: "Multiple Choice (Describe)" },
   { value: "multiple_yes_no", label: "Multiple Yes/No Questions" },
@@ -82,6 +84,9 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
 
   const [openConfirmModal, setOpenConfirmModal] = useState(false)
   const [selectedQuestion, setSelectedQuestion] = useState(null)
+
+  const [expandedOptions, setExpandedOptions] = useState({})
+  const [expandedSubQuestions, setExpandedSubQuestions] = useState({})
 
   const [createQuestion] = useCreateQuestionMutation()
   const [createQuestionOption] = useCreateQuestionOptionMutation()
@@ -353,19 +358,21 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
 
   const handleAddOptionToQuestion = async (questionId, optionText, maxQty = 1, forChild = false, parentQuestionId = null) => {
     if (!optionText.trim()) return
+    
+    // Add quantity-specific fields if it's a quantity question
+    const currentQuestion = forChild 
+      ? questions.find(q => q.id === parentQuestionId)?.child_questions?.find(child => child.id === questionId)
+      : questions.find(q => q.id === questionId)
+
+    const optionsLen = currentQuestion?.options?.length ?? 0;
 
     try {
       const payload = {
         question: questionId,
         question_id: questionId,
         option_text: optionText.trim(),
-        order: 1,
+        order: optionsLen+1,
       }
-      
-      // Add quantity-specific fields if it's a quantity question
-      const currentQuestion = forChild 
-        ? questions.find(q => q.id === parentQuestionId)?.child_questions?.find(child => child.id === questionId)
-        : questions.find(q => q.id === questionId)
       
       // if (currentQuestion?.question_type === "quantity") {
       //   payload.allow_quantity = true
@@ -435,12 +442,18 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
   ) => {
     if (!subQuestionText.trim()) return
 
+    const currentQuestion = forChild 
+      ? questions.find(q => q.id === parentQuestionId)?.child_questions?.find(child => child.id === questionId)
+      : questions.find(q => q.id === questionId)
+
+    const  optionsLen = currentQuestion?.sub_questions?.length ?? 0;
+
     try {
       const payload = {
         question: questionId,
         parent_question: questionId,
         sub_question_text: subQuestionText.trim(),
-        order: 1,
+        order: optionsLen + 1,
       }
       const subQuestionResult = await createQuestionSubQuestion(payload).unwrap()
 
@@ -563,109 +576,223 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
   }
 
   const renderOptionList = (question, isChild = false, parentQuestionId = null) => {
-    const options = isChild ? question?.options || [] : question?.options || []
+    const options = isChild ? question?.options || [] : question?.options || [];
+    const optionKey = isChild ? `child_${question.id}` : question.id;
+    const isExpanded = expandedOptions[optionKey] || false;
+    const VISIBLE_COUNT = 5;
+    const hasMore = options.length > VISIBLE_COUNT;
+    const visibleOptions = isExpanded ? options : options.slice(0, VISIBLE_COUNT);
+
+    const handleDragEnd = async (result) => {
+      if (!result.destination) return;
+
+      const sourceIndex = result.source.index;
+      const destinationIndex = result.destination.index;
+
+      if (sourceIndex === destinationIndex) return;
+
+      const reorderedOptions = Array.from(options);
+      const [movedOption] = reorderedOptions.splice(sourceIndex, 1);
+      reorderedOptions.splice(destinationIndex, 0, movedOption);
+
+      // Update local state first for immediate UI feedback
+      const updatedQuestions = questions.map((q) => {
+        if (!isChild && q.id === question.id) {
+          return { ...q, options: reorderedOptions };
+        }
+        if (isChild && q.id === parentQuestionId) {
+          return {
+            ...q,
+            child_questions: q.child_questions.map((child) =>
+              child.id === question.id ? { ...child, options: reorderedOptions } : child
+            ),
+          };
+        }
+        return q;
+      });
+
+      setQuestions(updatedQuestions);
+      onUpdate({ questions: updatedQuestions });
+
+      // Update backend with new orders - only for affected items
+      try {
+        const minIndex = Math.min(sourceIndex, destinationIndex);
+        const maxIndex = Math.max(sourceIndex, destinationIndex);
+        
+        // Only update items between source and destination (inclusive)
+        const updatePromises = reorderedOptions
+          .slice(minIndex, maxIndex + 1)
+          .map((option, index) => {
+            return updateQuestionOption({
+              id: option.id,
+              option_text: option.option_text,
+              question: question.id,
+              order: minIndex + index + 1,
+            }).unwrap();
+          });
+
+        await Promise.all(updatePromises);
+      } catch (err) {
+        console.error("Failed to update option order:", err);
+        // Revert on error
+        setQuestions(questions);
+        onUpdate({ questions });
+      }
+    };
 
     return (
       <Box>
-        <Typography variant="subtitle2" gutterBottom>
-          Options:
-        </Typography>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
-          {options.map((option) => (
-            <Box
-              key={option.id || option.tempId || Math.random()}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                border: "1px solid #e0e0e0",
-                padding: 0.5,
-                borderRadius: 1,
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="subtitle2" gutterBottom>
+            Options:
+          </Typography>
+          {hasMore && (
+            <Button
+              size="small"
+              onClick={() => setExpandedOptions(prev => ({ ...prev, [optionKey]: !prev[optionKey] }))}
+              sx={{ 
+                textTransform: 'none', 
+                minWidth: 'auto',
+                fontSize: '12px',
+                color: '#1976d2'
               }}
             >
-              {editingOptionId === option.id ? (
-                <TextField
-                  size="small"
-                  value={editingOptionText}
-                  onChange={(e) => setEditingOptionText(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter" && editingOptionText.trim()) {
-                      try {
-                        const result = await updateQuestionOption({
-                          id: option.id,
-                          option_text: editingOptionText.trim(),
-                          question: question.id,
-                        }).unwrap()
-
-                        const updatedQuestions = questions.map((q) => {
-                          if (!isChild && q.id === question.id) {
-                            return {
-                              ...q,
-                              options: q.options.map((opt) => (opt.id === option.id ? result : opt)),
-                            }
-                          }
-                          if (isChild && q.id === parentQuestionId) {
-                            return {
-                              ...q,
-                              child_questions: q.child_questions.map((child) =>
-                                child.id === question.id
-                                  ? {
-                                      ...child,
-                                      options: child.options.map((opt) => (opt.id === option.id ? result : opt)),
-                                    }
-                                  : child,
-                              ),
-                            }
-                          }
-                          return q
-                        })
-
-                        setQuestions(updatedQuestions)
-                        setEditingOptionId(null)
-                      } catch (err) {
-                        console.error("Failed to update option:", err)
-                      }
-                    } else if (e.key === "Escape") {
-                      setEditingOptionId(null)
-                    }
-                  }}
-                  onBlur={() => setEditingOptionId(null)}
-                  autoFocus
-                />
-              ) : (
-                <>
-                  <Typography variant="body2">{option.option_text || option}</Typography>
-                  {/* {question.question_type === "quantity" && (
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: "12px" }}>
-                      (Max: {option.max_quantity || 1})
-                    </Typography>
-                  )} */}
-                  <Box sx={{ display: "flex", gap: 0.5 }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setEditingOptionId(option.id)
-                        setEditingOptionText(option.option_text || "")
-                      }}
-                      sx={{ p: 0 }}
-                    >
-                      <Edit sx={{ fontSize: "14px", color: "#9CCA6D" }} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteOptionFromQuestion(question.id, option.id, isChild, parentQuestionId)}
-                      sx={{ p: 0 }}
-                    >
-                      <Delete sx={{ fontSize: "14px", color: "#BE4B4B" }} />
-                    </IconButton>
-                  </Box>
-                </>
-              )}
-            </Box>
-          ))}
+              {isExpanded ? 'Show less' : `${options.length - VISIBLE_COUNT} more`}
+            </Button>
+          )}
         </Box>
 
-        {/* inline add */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId={`options-${question.id}-${isChild ? 'child' : 'parent'}`}>
+            {(provided, snapshot) => (
+              <Box
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  mb: 1,
+                  p: 1,
+                  backgroundColor: snapshot.isDraggingOver ? '#f5f5f5' : 'transparent',
+                  borderRadius: 1,
+                  minHeight: '50px',
+                }}
+              >
+                {visibleOptions.map((option, index) => (
+                  <Draggable
+                    key={option.id}
+                    draggableId={`option-${option.id}`}
+                    index={index}
+                  >
+                    {(provided, snapshot) => (
+                      <Box
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          border: "1px solid #e0e0e0",
+                          padding: 1,
+                          borderRadius: 1,
+                          backgroundColor: snapshot.isDragging ? '#e3f2fd' : 'white',
+                          cursor: 'grab',
+                          '&:active': {
+                            cursor: 'grabbing',
+                          },
+                          boxShadow: snapshot.isDragging ? '0 4px 8px rgba(0,0,0,0.2)' : 'none',
+                        }}
+                      >
+                        {editingOptionId === option.id ? (
+                          <TextField
+                            size="small"
+                            value={editingOptionText}
+                            onChange={(e) => setEditingOptionText(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === "Enter" && editingOptionText.trim()) {
+                                try {
+                                  const result = await updateQuestionOption({
+                                    id: option.id,
+                                    option_text: editingOptionText.trim(),
+                                    question: question.id,
+                                    order: option.order,
+                                  }).unwrap();
+
+                                  const updatedQuestions = questions.map((q) => {
+                                    if (!isChild && q.id === question.id) {
+                                      return {
+                                        ...q,
+                                        options: q.options.map((opt) => (opt.id === option.id ? result : opt)),
+                                      };
+                                    }
+                                    if (isChild && q.id === parentQuestionId) {
+                                      return {
+                                        ...q,
+                                        child_questions: q.child_questions.map((child) =>
+                                          child.id === question.id
+                                            ? {
+                                                ...child,
+                                                options: child.options.map((opt) => (opt.id === option.id ? result : opt)),
+                                              }
+                                            : child
+                                        ),
+                                      };
+                                    }
+                                    return q;
+                                  });
+
+                                  setQuestions(updatedQuestions);
+                                  setEditingOptionId(null);
+                                } catch (err) {
+                                  console.error("Failed to update option:", err);
+                                }
+                              } else if (e.key === "Escape") {
+                                setEditingOptionId(null);
+                              }
+                            }}
+                            onBlur={() => setEditingOptionId(null)}
+                            autoFocus
+                            sx={{ flex: 1 }}
+                          />
+                        ) : (
+                          <>
+                            <Typography variant="body2" sx={{ flex: 1 }}>
+                              {option.option_text || option}
+                            </Typography>
+                            <Box sx={{ display: "flex", gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setEditingOptionId(option.id);
+                                  setEditingOptionText(option.option_text || "");
+                                }}
+                                sx={{ p: 0 }}
+                              >
+                                <Edit sx={{ fontSize: "20px", color: "#9CCA6D" }} />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteOptionFromQuestion(question.id, option.id, isChild, parentQuestionId)}
+                                sx={{ p: 0 }}
+                              >
+                                <Delete sx={{ fontSize: "20px", color: "#BE4B4B" }} />
+                              </IconButton>
+                            </Box>
+                          </>
+                        )}
+                      </Box>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </Box>
+            )}
+          </Droppable>
+        </DragDropContext>
+
+        {/* inline add - rest of the code remains the same */}
         <Box display="flex" gap={1} alignItems="center" mb={2} flexWrap="wrap">
           <TextField
             size="small"
@@ -679,84 +806,32 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
             }
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                e.preventDefault()
+                e.preventDefault();
                 if (isChild) {
                   handleAddOptionToQuestion(
                     question.id,
                     optionInputs[`child_${question.id}`] || "",
-                    // optionInputs[`child_${question.id}_maxQty`] || 1,
                     true,
-                    parentQuestionId,
-                  )
+                    parentQuestionId
+                  );
                   setOptionInputs((prev) => ({ 
                     ...prev, 
                     [`child_${question.id}`]: "",
-                    // [`child_${question.id}_maxQty`]: ""
-                  }))
+                  }));
                 } else {
                   handleAddOptionToQuestion(
                     question.id, 
-                    optionInputs[question.id] || "",
-                    // optionInputs[`${question.id}_maxQty`] || 1
-                  )
+                    optionInputs[question.id] || ""
+                  );
                   setOptionInputs((prev) => ({ 
                     ...prev, 
                     [question.id]: "",
-                    // [`${question.id}_maxQty`]: ""
-                  }))
+                  }));
                 }
               }
             }}
             sx={{ minWidth: "150px" }}
           />
-          
-          {/* Max Quantity Input for quantity type questions */}
-          {/* {question.question_type === "quantity" && (
-            <TextField
-              size="small"
-              type="number"
-              label="Max Qty"
-              value={isChild ? optionInputs[`child_${question.id}_maxQty`] || "" : optionInputs[`${question.id}_maxQty`] || ""}
-              onChange={(e) =>
-                setOptionInputs((prev) => ({
-                  ...prev,
-                  [isChild ? `child_${question.id}_maxQty` : `${question.id}_maxQty`]: e.target.value,
-                }))
-              }
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  if (isChild) {
-                    handleAddOptionToQuestion(
-                      question.id,
-                      optionInputs[`child_${question.id}`] || "",
-                      optionInputs[`child_${question.id}_maxQty`] || 1,
-                      true,
-                      parentQuestionId,
-                    )
-                    setOptionInputs((prev) => ({ 
-                      ...prev, 
-                      [`child_${question.id}`]: "",
-                      [`child_${question.id}_maxQty`]: ""
-                    }))
-                  } else {
-                    handleAddOptionToQuestion(
-                      question.id, 
-                      optionInputs[question.id] || "",
-                      optionInputs[`${question.id}_maxQty`] || 1
-                    )
-                    setOptionInputs((prev) => ({ 
-                      ...prev, 
-                      [question.id]: "",
-                      [`${question.id}_maxQty`]: ""
-                    }))
-                  }
-                }
-              }}
-              sx={{ width: "100px" }}
-              inputProps={{ min: 1 }}
-            />
-          )} */}
           
           <Button
             onClick={() => {
@@ -764,26 +839,22 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                 handleAddOptionToQuestion(
                   question.id,
                   optionInputs[`child_${question.id}`] || "",
-                  // optionInputs[`child_${question.id}_maxQty`] || 1,
                   true,
-                  parentQuestionId,
-                )
+                  parentQuestionId
+                );
                 setOptionInputs((prev) => ({ 
                   ...prev, 
                   [`child_${question.id}`]: "",
-                  // [`child_${question.id}_maxQty`]: ""
-                }))
+                }));
               } else {
                 handleAddOptionToQuestion(
                   question.id, 
-                  optionInputs[question.id] || "",
-                  // optionInputs[`${question.id}_maxQty`] || 1
-                )
+                  optionInputs[question.id] || ""
+                );
                 setOptionInputs((prev) => ({ 
                   ...prev, 
                   [question.id]: "",
-                  // [`${question.id}_maxQty`]: ""
-                }))
+                }));
               }
             }}
             disabled={!(isChild ? optionInputs[`child_${question.id}`] : optionInputs[question.id])?.trim()}
@@ -794,114 +865,228 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
           </Button>
         </Box>
       </Box>
-    )
-  }
+    );
+  };
 
+  // Replace the renderSubQuestionList function with this updated version:
   const renderSubQuestionList = (question, isChild = false, parentQuestionId = null) => {
-    const subQuestions = isChild ? question?.sub_questions || [] : question?.sub_questions || []
+    const subQuestions = isChild ? question?.sub_questions || [] : question?.sub_questions || [];
+    const subQuestionKey = isChild ? `child_sub_${question.id}` : `sub_${question.id}`;
+    const isExpanded = expandedSubQuestions[subQuestionKey] || false;
+    const VISIBLE_COUNT = 5;
+    const hasMore = subQuestions.length > VISIBLE_COUNT;
+    const visibleSubQuestions = isExpanded ? subQuestions : subQuestions.slice(0, VISIBLE_COUNT);
+
+    const handleDragEnd = async (result) => {
+      if (!result.destination) return;
+
+      const sourceIndex = result.source.index;
+      const destinationIndex = result.destination.index;
+
+      if (sourceIndex === destinationIndex) return;
+
+      const reorderedSubQuestions = Array.from(subQuestions);
+      const [movedSubQuestion] = reorderedSubQuestions.splice(sourceIndex, 1);
+      reorderedSubQuestions.splice(destinationIndex, 0, movedSubQuestion);
+
+      // Update local state first for immediate UI feedback
+      const updatedQuestions = questions.map((q) => {
+        if (!isChild && q.id === question.id) {
+          return { ...q, sub_questions: reorderedSubQuestions };
+        }
+        if (isChild && q.id === parentQuestionId) {
+          return {
+            ...q,
+            child_questions: q.child_questions.map((child) =>
+              child.id === question.id ? { ...child, sub_questions: reorderedSubQuestions } : child
+            ),
+          };
+        }
+        return q;
+      });
+
+      setQuestions(updatedQuestions);
+      onUpdate({ questions: updatedQuestions });
+
+      // Update backend with new orders
+      try {
+        const updatePromises = reorderedSubQuestions.map((subQuestion, index) => {
+          return updateQuestionSubQuestion({
+            id: subQuestion.id,
+            sub_question_text: subQuestion.sub_question_text,
+            question: question.id,
+            order: index + 1,
+          }).unwrap();
+        });
+
+        await Promise.all(updatePromises);
+      } catch (err) {
+        console.error("Failed to update sub-question order:", err);
+        // Revert on error
+        setQuestions(questions);
+        onUpdate({ questions });
+      }
+    };
 
     return (
       <Box>
-        <Typography variant="subtitle2" gutterBottom>
-          Sub-Questions:
-        </Typography>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
-          {subQuestions.map((subQuestion) => (
-            <Box
-              key={subQuestion.id || subQuestion.tempId || Math.random()}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                border: "1px solid #e0e0e0",
-                padding: 0.5,
-                borderRadius: 1,
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="subtitle2" gutterBottom>
+            Sub-Questions:
+          </Typography>
+          {hasMore && (
+            <Button
+              size="small"
+              onClick={() => setExpandedSubQuestions(prev => ({ ...prev, [subQuestionKey]: !prev[subQuestionKey] }))}
+              sx={{ 
+                textTransform: 'none', 
+                minWidth: 'auto',
+                fontSize: '12px',
+                color: '#1976d2'
               }}
             >
-              {editingSubQuestionId === subQuestion.id ? (
-                <TextField
-                  size="small"
-                  value={editingSubQuestionText}
-                  onChange={(e) => setEditingSubQuestionText(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter" && editingSubQuestionText.trim()) {
-                      try {
-                        const result = await updateQuestionSubQuestion({
-                          id: subQuestion.id,
-                          sub_question_text: editingSubQuestionText.trim(),
-                          question: question.id,
-                        }).unwrap()
-
-                        const updatedQuestions = questions.map((q) => {
-                          if (!isChild && q.id === question.id) {
-                            return {
-                              ...q,
-                              sub_questions: q.sub_questions.map((subQ) =>
-                                subQ.id === subQuestion.id ? result : subQ,
-                              ),
-                            }
-                          }
-                          if (isChild && q.id === parentQuestionId) {
-                            return {
-                              ...q,
-                              child_questions: q.child_questions.map((child) =>
-                                child.id === question.id
-                                  ? {
-                                      ...child,
-                                      sub_questions: child.sub_questions.map((subQ) =>
-                                        subQ.id === subQuestion.id ? result : subQ,
-                                      ),
-                                    }
-                                  : child,
-                              ),
-                            }
-                          }
-                          return q
-                        })
-
-                        setQuestions(updatedQuestions)
-                        setEditingSubQuestionId(null)
-                      } catch (err) {
-                        console.error("Failed to update sub-question:", err)
-                      }
-                    } else if (e.key === "Escape") {
-                      setEditingSubQuestionId(null)
-                    }
-                  }}
-                  onBlur={() => setEditingSubQuestionId(null)}
-                  autoFocus
-                />
-              ) : (
-                <>
-                  <Typography variant="body2">{subQuestion.sub_question_text || subQuestion}</Typography>
-                  <Box sx={{ display: "flex", gap: 0.5 }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setEditingSubQuestionId(subQuestion.id)
-                        setEditingSubQuestionText(subQuestion.sub_question_text || "")
-                      }}
-                      sx={{ p: 0 }}
-                    >
-                      <Edit sx={{ fontSize: "14px", color: "#9CCA6D" }} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        handleDeleteSubQuestionFromQuestion(question.id, subQuestion.id, isChild, parentQuestionId)
-                      }
-                      sx={{ p: 0 }}
-                    >
-                      <Delete sx={{ fontSize: "14px", color: "#BE4B4B" }} />
-                    </IconButton>
-                  </Box>
-                </>
-              )}
-            </Box>
-          ))}
+              {isExpanded ? 'Show less' : `${subQuestions.length - VISIBLE_COUNT} more`}
+            </Button>
+          )}
         </Box>
 
-        {/* inline add */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId={`subquestions-${question.id}-${isChild ? 'child' : 'parent'}`}>
+            {(provided, snapshot) => (
+              <Box
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  mb: 1,
+                  p: 1,
+                  backgroundColor: snapshot.isDraggingOver ? '#f5f5f5' : 'transparent',
+                  borderRadius: 1,
+                  minHeight: '50px',
+                }}
+              >
+                {visibleSubQuestions.map((subQuestion, index) => (
+                  <Draggable
+                    key={subQuestion.id}
+                    draggableId={`subquestion-${subQuestion.id}`}
+                    index={index}
+                  >
+                    {(provided, snapshot) => (
+                      <Box
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          border: "1px solid #e0e0e0",
+                          padding: 1,
+                          borderRadius: 1,
+                          backgroundColor: snapshot.isDragging ? '#e3f2fd' : 'white',
+                          cursor: 'grab',
+                          '&:active': {
+                            cursor: 'grabbing',
+                          },
+                          boxShadow: snapshot.isDragging ? '0 4px 8px rgba(0,0,0,0.2)' : 'none',
+                        }}
+                      >
+                        {editingSubQuestionId === subQuestion.id ? (
+                          <TextField
+                            size="small"
+                            value={editingSubQuestionText}
+                            onChange={(e) => setEditingSubQuestionText(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === "Enter" && editingSubQuestionText.trim()) {
+                                try {
+                                  const result = await updateQuestionSubQuestion({
+                                    id: subQuestion.id,
+                                    sub_question_text: editingSubQuestionText.trim(),
+                                    question: question.id,
+                                    order: subQuestion.order,
+                                  }).unwrap();
+
+                                  const updatedQuestions = questions.map((q) => {
+                                    if (!isChild && q.id === question.id) {
+                                      return {
+                                        ...q,
+                                        sub_questions: q.sub_questions.map((subQ) =>
+                                          subQ.id === subQuestion.id ? result : subQ
+                                        ),
+                                      };
+                                    }
+                                    if (isChild && q.id === parentQuestionId) {
+                                      return {
+                                        ...q,
+                                        child_questions: q.child_questions.map((child) =>
+                                          child.id === question.id
+                                            ? {
+                                                ...child,
+                                                sub_questions: child.sub_questions.map((subQ) =>
+                                                  subQ.id === subQuestion.id ? result : subQ
+                                                ),
+                                              }
+                                            : child
+                                        ),
+                                      };
+                                    }
+                                    return q;
+                                  });
+
+                                  setQuestions(updatedQuestions);
+                                  setEditingSubQuestionId(null);
+                                } catch (err) {
+                                  console.error("Failed to update sub-question:", err);
+                                }
+                              } else if (e.key === "Escape") {
+                                setEditingSubQuestionId(null);
+                              }
+                            }}
+                            onBlur={() => setEditingSubQuestionId(null)}
+                            autoFocus
+                            sx={{ flex: 1 }}
+                          />
+                        ) : (
+                          <>
+                            <Typography variant="body2" sx={{ flex: 1 }}>
+                              {subQuestion.sub_question_text || subQuestion}
+                            </Typography>
+                            <Box sx={{ display: "flex", gap: 1 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => {
+                                  setEditingSubQuestionId(subQuestion.id);
+                                  setEditingSubQuestionText(subQuestion.sub_question_text || "");
+                                }}
+                                sx={{ p: 0 }}
+                              >
+                                <Edit sx={{ fontSize: "20px", color: "#9CCA6D" }} />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={() =>
+                                  handleDeleteSubQuestionFromQuestion(question.id, subQuestion.id, isChild, parentQuestionId)
+                                }
+                                sx={{ p: 0 }}
+                              >
+                                <Delete sx={{ fontSize: "20px", color: "#BE4B4B" }} />
+                              </IconButton>
+                            </Box>
+                          </>
+                        )}
+                      </Box>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </Box>
+            )}
+          </Droppable>
+        </DragDropContext>
+
+        {/* inline add - rest of the code remains the same */}
         <Box display="flex" gap={1} alignItems="center" mb={2}>
           <TextField
             size="small"
@@ -915,18 +1100,18 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
             }
             onKeyDown={(e) => {
               if (e.key === "Enter") {
-                e.preventDefault()
+                e.preventDefault();
                 if (isChild) {
                   handleAddSubQuestionToQuestion(
                     question.id,
                     subQuestionInputs[`child_${question.id}`] || "",
                     true,
-                    parentQuestionId,
-                  )
-                  setSubQuestionInputs((prev) => ({ ...prev, [`child_${question.id}`]: "" }))
+                    parentQuestionId
+                  );
+                  setSubQuestionInputs((prev) => ({ ...prev, [`child_${question.id}`]: "" }));
                 } else {
-                  handleAddSubQuestionToQuestion(question.id, subQuestionInputs[question.id] || "")
-                  setSubQuestionInputs((prev) => ({ ...prev, [question.id]: "" }))
+                  handleAddSubQuestionToQuestion(question.id, subQuestionInputs[question.id] || "");
+                  setSubQuestionInputs((prev) => ({ ...prev, [question.id]: "" }));
                 }
               }
             }}
@@ -938,12 +1123,12 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                   question.id,
                   subQuestionInputs[`child_${question.id}`] || "",
                   true,
-                  parentQuestionId,
-                )
-                setSubQuestionInputs((prev) => ({ ...prev, [`child_${question.id}`]: "" }))
+                  parentQuestionId
+                );
+                setSubQuestionInputs((prev) => ({ ...prev, [`child_${question.id}`]: "" }));
               } else {
-                handleAddSubQuestionToQuestion(question.id, subQuestionInputs[question.id] || "")
-                setSubQuestionInputs((prev) => ({ ...prev, [question.id]: "" }))
+                handleAddSubQuestionToQuestion(question.id, subQuestionInputs[question.id] || "");
+                setSubQuestionInputs((prev) => ({ ...prev, [question.id]: "" }));
               }
             }}
             disabled={!(isChild ? subQuestionInputs[`child_${question.id}`] : subQuestionInputs[question.id])?.trim()}
@@ -954,8 +1139,8 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
           </Button>
         </Box>
       </Box>
-    )
-  }
+    );
+  };
 
   const renderNewQuestionOptions = () => {
     if (!isOptionType(newQuestion.question_type)) return null
@@ -1404,6 +1589,17 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                         }}
                         onBlur={() => setEditingQuestionId(null)}
                         autoFocus
+                        InputProps={{
+                          disableUnderline: false,
+                          sx: {
+                            width: 'auto',
+                          }
+                        }}
+                        inputProps={{
+                          style: {
+                            width: `${editingQuestionText.length + 1}ch`,  // auto-size to fit characters
+                          }
+                        }}
                         sx={{
                           pb: 1,
                           input: {
@@ -1445,7 +1641,7 @@ const QuestionBuilderForm = ({ data, onUpdate }) => {
                             setEditingQuestionText(question.question_text)
                           }}
                         >
-                          <Edit sx={{ fontSize: "16px", color: "#1976d2" }} />
+                          <Edit sx={{ fontSize: "20px", color: "#1976d2" }} />
                         </IconButton>
                       </Box>
                     )}

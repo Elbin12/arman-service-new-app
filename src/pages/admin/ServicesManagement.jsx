@@ -393,6 +393,7 @@ const ServicesManagement = () => {
         setActiveStep={setActiveStep}
         activeStep={activeStep}
         loadingEdit={loadingEdit}
+        servicesLen = {services?.length ?? 0}
       />
 
       {/* Delete Confirmation Dialog */}

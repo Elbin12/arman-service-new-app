@@ -53,6 +53,7 @@ export const ServiceCreationWizard = ({
   activeStep,
   setActiveStep,
   setServiceData,
+  servicesLen
 }) => { 
   
   const [savedSteps, setSavedSteps] = useState({
@@ -173,20 +174,23 @@ export const ServiceCreationWizard = ({
           if (!savedSteps[0]) {
             const servicePayload = {
               name: serviceData.name,
-              description: serviceData.description
+              description: serviceData.description,
+              order: editData? editData?.order: servicesLen + 1
             };
             
             let result;
             if (editData) {
               result = await updateService({ id: editData.id, ...servicePayload }).unwrap();
-              dispatch(
-                servicesApi.util.updateQueryData('getServices', undefined, (draft) => {
-                  const index = draft.findIndex((item) => item.id === serviceData.id);
-                  if (index !== -1) {
-                    draft[index] = result;
-                  }
-                })
-              );
+              // dispatch(
+              //   servicesApi.util.updateQueryData('getServices', undefined, (draft) => {
+              //     console.log(draft, 'draf')
+              //     const servicesArray = draft.data || draft; // handle both shapes
+              //     const index = servicesArray.findIndex((item) => item.id === serviceData.id);
+              //     if (index !== -1) {
+              //       draft[index] = result;
+              //     }
+              //   })
+              // );
             } else {
               result = await createService(servicePayload).unwrap();
               dispatch(setEditingService(result))
