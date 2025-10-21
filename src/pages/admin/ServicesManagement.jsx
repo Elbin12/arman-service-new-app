@@ -22,6 +22,8 @@ import {
   DialogContentText,
   CircularProgress,
   TextField,
+  Switch,
+  Pagination,
 } from '@mui/material';
 import {
   Add,
@@ -67,17 +69,11 @@ const ServicesManagement = () => {
     pricing: {},
   });
 
-  const { data: servicesData = [], isLoading, error } = useGetServicesQuery();
-  const { data: basePriceData, isLoading: basePriceLoading } = useGetGlobalBasePriceQuery();
-
   const [createGlobalBasePrice] = useCreateGlobalBasePriceMutation();
   const [updateGlobalBasePrice] = useUpdateGlobalBasePriceMutation();
 
   const [basePrice, setBasePrice] = useState('');
   const [originalBasePrice, setOriginalBasePrice] = useState('');
-
-  const services = servicesData.results;
-  console.log(services, 'servicesssssssss');
   
   const [createService] = useCreateServiceMutation();
   const [updateService] = useUpdateServiceMutation();
@@ -85,6 +81,14 @@ const ServicesManagement = () => {
 
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [orderedServices, setOrderedServices] = useState([]);
+
+  const [page, setPage] = useState(1);
+  
+  const { data: servicesData = [], isLoading, error } = useGetServicesQuery(page);
+  const { data: basePriceData, isLoading: basePriceLoading } = useGetGlobalBasePriceQuery();
+  
+  const services = servicesData.results;
+  const totalPages = servicesData.count ? Math.ceil(servicesData.count / 20) : 1;
 
   useEffect(() => {
     if (basePriceData) {
@@ -105,6 +109,22 @@ const ServicesManagement = () => {
       setOrderedServices(sorted);
     }
   }, [services]);
+
+  const handlePageChange = (event, value) => {
+    setPage(value);
+  };
+
+  const handleToggleActive = async (service) => {
+    try {
+      await updateService({
+        id: service.id,
+        is_active: !service.is_active,
+      }).unwrap();
+      console.log(`Service ${service.name} ${!service.is_active ? 'activated' : 'deactivated'}`);
+    } catch (error) {
+      console.error('Failed to update service status:', error);
+    }
+  };
 
   const handleSaveBasePrice = async () => {
     try {
@@ -346,11 +366,19 @@ const ServicesManagement = () => {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Chip 
-                                  label={service.is_active ? 'active' : 'inactive'} 
-                                  size="small"
-                                  color={service.is_active ? 'success' : 'default'}
-                                />
+                                <Box display="flex" alignItems="center" gap={1}>
+                                  <Switch
+                                    checked={service.is_active}
+                                    onChange={() => handleToggleActive(service)}
+                                    size="small"
+                                    color="success"
+                                  />
+                                  <Chip 
+                                    label={service.is_active ? 'active' : 'inactive'} 
+                                    size="small"
+                                    color={service.is_active ? 'success' : 'default'}
+                                  />
+                                </Box>
                               </TableCell>
                               <TableCell>{new Date(service.created_at).toLocaleDateString()}</TableCell>
                               <TableCell align="right">
@@ -382,6 +410,19 @@ const ServicesManagement = () => {
           </TableContainer>
         </CardContent>
       </Card>
+
+      {servicesData.count > 0 && (
+        <Box display="flex" justifyContent="center" mt={3}>
+          <Pagination 
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      )}
 
       <ServiceCreationWizard
         open={wizardOpen}

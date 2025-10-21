@@ -7,7 +7,10 @@ export const servicesApi = createApi({
   tagTypes: ['Service'],
   endpoints: (builder) => ({
     getServices: builder.query({
-      query: () => '',
+      query: (page = 1) => ({
+        url:'',
+        params:{page:page},
+      }),
       providesTags: ['Service'],
     }),
     getServiceById: builder.query({
@@ -28,6 +31,37 @@ export const servicesApi = createApi({
         method: 'PATCH',
         data: serviceData,
       }),
+      async onQueryStarted({ id, ...patch }, { dispatch, queryFulfilled, getState }) {
+        // Get all cached queries for getServices
+        const state = getState();
+        const patches = [];
+        
+        // Update all pages in cache
+        Object.keys(state.servicesApi.queries).forEach((key) => {
+          if (key.startsWith('getServices')) {
+            // Extract page number from the cache key
+            const match = key.match(/getServices\((\d+)\)/);
+            const page = match ? parseInt(match[1]) : 1;
+            
+            const patchResult = dispatch(
+              servicesApi.util.updateQueryData('getServices', page, (draft) => {
+                const service = draft.results?.find((s) => s.id === id);
+                if (service) {
+                  Object.assign(service, patch);
+                }
+              })
+            );
+            patches.push(patchResult);
+          }
+        });
+        
+        try {
+          await queryFulfilled;
+        } catch {
+          // Revert all optimistic updates on error
+          patches.forEach((patchResult) => patchResult.undo());
+        }
+      },
       invalidatesTags: (result, error, { id }) => [{ type: 'Service', id }],
     }),
     deleteService: builder.mutation({
