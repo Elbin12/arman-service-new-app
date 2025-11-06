@@ -264,14 +264,11 @@ export const handleDownloadPDF = async (
     yPosition += 10
 
     // Calculate all values like the web page does
-    const totalServicePrice = service_selections?.reduce((sum, s) => sum + Number(s.final_total_price || 0), 0) || 0
-    const customServiceTotal = custom_products?.reduce((sum, p) => sum + Number(p.price || 0), 0) || 0
-    const subtotal = totalServicePrice
-    const adjustment = subtotal < (globalPriceData?.base_price || 0) ? (globalPriceData?.base_price || 0) - subtotal : 0
-    const final = subtotal + adjustment
+    const customServiceTotal = quote.custom_service_total || "0.00"
+    const final = quote.final_total
     const taxRate = 0.0825 // 8.25% tax
     const taxAmount = final * taxRate
-    const finalWithTax = final + taxAmount
+    const finalWithTax = Number(final) + taxAmount
 
     doc.setFontSize(10)
     doc.setFont(undefined, "normal")
@@ -294,12 +291,6 @@ export const handleDownloadPDF = async (
       yPosition += 6
     }
 
-    // Adjustments
-    checkPageBreak(1)
-    doc.text("Adjustments", margin, yPosition)
-    doc.text(formatPrice(adjustment), pageWidth - margin - 40, yPosition)
-    yPosition += 6
-
     // Tax
     checkPageBreak(1)
     doc.text("Tax (8.25%)", margin, yPosition)
@@ -307,7 +298,7 @@ export const handleDownloadPDF = async (
     yPosition += 6
 
     // Add note if minimum base price applies
-    if (subtotal < (globalPriceData?.base_price || 0)) {
+    if (quote.final_total < (globalPriceData?.base_price || 0)) {
       checkPageBreak(2)
       yPosition += 3
       doc.setFontSize(9)

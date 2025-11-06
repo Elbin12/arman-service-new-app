@@ -59,7 +59,7 @@ export const AdminLayout = ({ children }) => {
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Toolbar>
         <Typography variant="h6" noWrap component="div" className="text-primary font-bold">
-          Admin Panel  
+          Admin Panel
         </Typography>
       </Toolbar>
       <List style={{ flex: 1 }}>

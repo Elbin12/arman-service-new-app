@@ -1271,19 +1271,9 @@ const QuoteDetailsPage = () => {
 
                     {/* Calculate totals */}
                     {(() => {
-                      const totalServicePrice =
-                        service_selections?.reduce((sum, s) => sum + Number(s.final_total_price || 0), 0) || 0
-
-                      const subtotal = totalServicePrice+Number(custom_service_total)
-
-
-                      const final = formatPrice(final_total + custom_service_total); // numeric addition
-                      // const final = formatPrice(final_total) + formatPrice(custom_service_total)
-                      console.log(final, custom_service_total, typeof(final))
                       const taxRate = 0.0825 // 8.25% tax
-                      const taxAmount = final * taxRate
-                      const finalWithTax = Number(final) + taxAmount
-                      console.log(taxAmount, typeof(final))
+                      const taxAmount = final_total * taxRate
+                      const finalWithTax = Number(final_total) + taxAmount
 
                       return (
                         <>
@@ -1300,7 +1290,7 @@ const QuoteDetailsPage = () => {
                           </Box>
 
                           {/* Note if subtotal < base price */}
-                          {subtotal < (globalPriceData?.base_price || 0) && (
+                          {final_total < (globalPriceData?.base_price || 0) && (
                             <Typography variant="caption" color="error">
                               Note: Minimum base price is ${formatPrice(globalPriceData?.base_price || 0)}
                             </Typography>
